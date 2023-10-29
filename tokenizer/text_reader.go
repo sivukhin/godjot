@@ -2,60 +2,138 @@ package tokenizer
 
 import (
 	"bytes"
-	"slices"
 )
 
-type TextReader struct {
-	Text     []byte
-	Position int
+type ByteMask [4]uint64
+
+func NewByteMask(set []byte) ByteMask {
+	mask := ByteMask{0, 0}
+	for _, b := range set {
+		mask[b/64] |= 1 << (b & 63)
+	}
+	return mask
+}
+func (m ByteMask) Has(b byte) bool {
+	return m[b/64]&(1<<uint64(b&63)) > 0
 }
 
-func (r TextReader) Peek() (byte, bool) {
-	if r.Position < len(r.Text) {
-		return r.Text[r.Position], true
+func (m ByteMask) Negate() ByteMask {
+	const mask uint64 = 0xffffffffffffffff
+	return ByteMask{m[0] ^ mask, m[1] ^ mask, m[2] ^ mask, m[3] ^ mask}
+}
+
+func (m ByteMask) Or(other ByteMask) ByteMask {
+	return ByteMask{m[0] | other[0], m[1] | other[1], m[2] | other[2], m[3] | other[3]}
+}
+
+func (m ByteMask) And(other ByteMask) ByteMask {
+	return ByteMask{m[0] & other[0], m[1] & other[1], m[2] & other[2], m[3] & other[3]}
+}
+
+func Union(masks ...ByteMask) ByteMask {
+	var result ByteMask
+	for _, mask := range masks {
+		result = result.Or(mask)
+	}
+	return result
+}
+
+func Intersection(masks ...ByteMask) ByteMask {
+	result := masks[0]
+	for _, mask := range masks[1:] {
+		result = result.And(mask)
+	}
+	return result
+}
+
+type TextReader []byte
+type ReaderState int
+
+const Unmatched ReaderState = -1
+
+var (
+	SpaceByteMask        = NewByteMask([]byte(" \t"))
+	SpaceNewLineByteMask = NewByteMask([]byte(" \t\r\n"))
+)
+
+func (s ReaderState) Matched() bool {
+	return s != Unmatched
+}
+
+func (r TextReader) Select(start, end ReaderState) string {
+	return string(r[start:end])
+}
+
+func (r TextReader) EmptyOrWhiteSpace(s ReaderState) ReaderState {
+	next := r.MaskRepeat(s, SpaceNewLineByteMask, 0)
+	if !r.Empty(next) {
+		return Unmatched
+	}
+	return next
+}
+func (r TextReader) Mask(s ReaderState, mask ByteMask) ReaderState {
+	if r.HasMask(s, mask) {
+		return s + 1
+	}
+	return Unmatched
+}
+func (r TextReader) Token(s ReaderState, token string) ReaderState {
+	if r.HasToken(s, token) {
+		return s + ReaderState(len([]byte(token)))
+	}
+	return Unmatched
+}
+func (r TextReader) ByteRepeat(s ReaderState, b byte, count int) ReaderState {
+	for !r.Empty(s) {
+		if r.HasByte(s, b) {
+			s++
+			count--
+		} else {
+			break
+		}
+	}
+	if count <= 0 {
+		return s
+	}
+	return Unmatched
+}
+func (r TextReader) MaskRepeat(s ReaderState, mask ByteMask, count int) ReaderState {
+	for !r.Empty(s) {
+		if r.HasMask(s, mask) {
+			s++
+			count--
+		} else {
+			break
+		}
+	}
+	if count <= 0 {
+		return s
+	}
+	return Unmatched
+}
+
+func (r TextReader) Empty(current ReaderState) bool {
+	return int(current) >= len(r) || current < 0
+}
+func (r TextReader) HasToken(s ReaderState, token string) bool {
+	return bytes.HasPrefix(r[s:], []byte(token))
+}
+func (r TextReader) HasByte(s ReaderState, b byte) bool {
+	if r.Empty(s) {
+		return false
+	}
+	return r[s] == b
+}
+func (r TextReader) HasMask(s ReaderState, mask ByteMask) bool {
+	if r.Empty(s) {
+		return false
+	}
+	return mask.Has(r[s])
+}
+
+func (r TextReader) Peek(current ReaderState) (byte, bool) {
+	if int(current) < len(r) {
+		return r[current], true
 	}
 	return 0, false
 }
-
-func (r TextReader) MatchWhileSet(set string, next *TextReader) bool {
-	bytesSet := []byte(set)
-	advance := 0
-	for r.Position+advance < len(r.Text) {
-		current := r.Text[r.Position+advance]
-		if !slices.Contains(bytesSet, current) {
-			break
-		}
-		advance++
-	}
-	if advance == 0 {
-		return false
-	}
-	*next = TextReader{Text: r.Text, Position: r.Position + advance}
-	return true
-}
-
-func (r TextReader) MatchAny() TextReader {
-	if r.Position == len(r.Text) {
-		return r
-	}
-	return TextReader{Text: r.Text, Position: r.Position + 1}
-}
-
-func (r TextReader) MatchSingle(x byte, next *TextReader) bool {
-	if current, ok := r.Peek(); ok && current == x {
-		*next = r.MatchAny()
-		return true
-	}
-	return false
-}
-func (r TextReader) Match(s string, next *TextReader) bool {
-	ok := r.HasNext(s)
-	if ok {
-		*next = TextReader{Text: r.Text, Position: r.Position + len([]byte(s))}
-	}
-	return ok
-}
-
-func (r TextReader) Empty() bool           { return r.Position >= len(r.Text) }
-func (r TextReader) HasPrev(s string) bool { return bytes.HasSuffix(r.Text[:r.Position], []byte(s)) }
-func (r TextReader) HasNext(s string) bool { return bytes.HasPrefix(r.Text[r.Position:], []byte(s)) }

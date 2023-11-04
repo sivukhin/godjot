@@ -1,4 +1,4 @@
-package htmlwriter
+package html_writer
 
 import "strings"
 

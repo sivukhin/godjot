@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/sivukhin/godjot/djot_tokenizer"
-	"github.com/sivukhin/godjot/htmlwriter"
+	"github.com/sivukhin/godjot/html_writer"
 )
 
-func ConvertDjotToHtml(builder *htmlwriter.HtmlWriter, format string, trees ...Tree[DjotNode]) {
+func ConvertDjotToHtml(builder *html_writer.HtmlWriter, format string, trees ...Tree[DjotNode]) {
 	for _, tree := range trees {
 		switch tree.Type {
 		case HeadingNode:
@@ -41,22 +41,22 @@ func ConvertDjotToHtml(builder *htmlwriter.HtmlWriter, format string, trees ...T
 		case DocumentNode:
 			ConvertDjotToHtml(builder, format, tree.Children...)
 		case LinkNode:
-			var attributes []htmlwriter.HtmlAttribute
+			var attributes []html_writer.HtmlAttribute
 			if bytes.Contains(tree.Text, []byte("@")) {
-				attributes = append(attributes, htmlwriter.HtmlAttribute{Key: "href", Value: "mailto:" + string(tree.Text)})
+				attributes = append(attributes, html_writer.HtmlAttribute{Key: "href", Value: "mailto:" + string(tree.Text)})
 			} else if len(tree.Text) > 0 {
-				attributes = append(attributes, htmlwriter.HtmlAttribute{Key: "href", Value: string(tree.Text)})
+				attributes = append(attributes, html_writer.HtmlAttribute{Key: "href", Value: string(tree.Text)})
 			}
 			builder.InTag("a", attributes...)(func() { ConvertDjotToHtml(builder, format, tree.Children...) })
 		case VerbatimNode:
 			if _, ok := tree.Attributes[djot_tokenizer.InlineMathKey]; ok {
-				builder.InTag("span", htmlwriter.HtmlAttribute{Key: "class", Value: "math inline"})(func() {
+				builder.InTag("span", html_writer.HtmlAttribute{Key: "class", Value: "math inline"})(func() {
 					builder.WriteString("\\(")
 					builder.WriteBytes(tree.Text)
 					builder.WriteString("\\)")
 				})
 			} else if _, ok := tree.Attributes[djot_tokenizer.DisplayMathKey]; ok {
-				builder.InTag("span", htmlwriter.HtmlAttribute{Key: "class", Value: "math display"})(func() {
+				builder.InTag("span", html_writer.HtmlAttribute{Key: "class", Value: "math display"})(func() {
 					builder.WriteString("\\[")
 					builder.WriteBytes(tree.Text)
 					builder.WriteString("\\]")
@@ -67,9 +67,9 @@ func ConvertDjotToHtml(builder *htmlwriter.HtmlWriter, format string, trees ...T
 				builder.InTag("code")(func() { builder.WriteBytes(tree.Text) })
 			}
 		case SpanNode:
-			attributes := make([]htmlwriter.HtmlAttribute, 0)
+			attributes := make([]html_writer.HtmlAttribute, 0)
 			for key, value := range tree.Attributes {
-				attributes = append(attributes, htmlwriter.HtmlAttribute{Key: key, Value: value})
+				attributes = append(attributes, html_writer.HtmlAttribute{Key: key, Value: value})
 			}
 			builder.InTag("span", attributes...)(func() { ConvertDjotToHtml(builder, format, tree.Children...) })
 		case LineBreakNode:

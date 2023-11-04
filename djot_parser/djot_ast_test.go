@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/sivukhin/godjot/djot_tokenizer"
-	"github.com/sivukhin/godjot/htmlwriter"
+	"github.com/sivukhin/godjot/html_writer"
 	"github.com/stretchr/testify/require"
 	"html"
 	"io"
@@ -31,7 +31,7 @@ func printDjot(text string) string {
 	tokens := djot_tokenizer.BuildDjotTokens(document)
 	context := BuildDjotContext(document, tokens)
 	ast := buildDjotAst(document, context, tokens, false)
-	builder := htmlwriter.HtmlWriter{}
+	builder := html_writer.HtmlWriter{}
 	ConvertDjotToHtml(&builder, "html", ast...)
 	return builder.String()
 }

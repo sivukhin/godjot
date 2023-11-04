@@ -1,0 +1,7 @@
+![picture of a cat](cat.jpg)
+
+![picture of a cat][cat]
+
+![cat][]
+
+[cat]: feline.jpg

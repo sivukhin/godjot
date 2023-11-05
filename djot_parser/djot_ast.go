@@ -9,12 +9,15 @@ import (
 	"unicode"
 )
 
-const RawFormatKey = "RawFormatKey"
+const (
+	RawFormatKey = "RawFormatKey"
+	ImgAltKey    = "alt"
+)
 
 type DjotNode int
 
 const (
-	DocumentNode = iota
+	DocumentNode DjotNode = iota
 	SectionNode
 	ParagraphNode
 	HeadingNode
@@ -39,6 +42,7 @@ const (
 	VerbatimNode
 	LineBreakNode
 	LinkNode
+	ImageNode
 	SpanNode
 )
 
@@ -220,6 +224,16 @@ func trimPadding(document []byte, list tokenizer.TokenList[djot_tokenizer.DjotTo
 	return nil
 }
 
+func selectText(document []byte, list tokenizer.TokenList[djot_tokenizer.DjotToken]) []byte {
+	text := make([]byte, 0)
+	for _, token := range list {
+		if token.Type == djot_tokenizer.None {
+			text = append(text, document[token.Start:token.End]...)
+		}
+	}
+	return text
+}
+
 func buildDjotAst(
 	document []byte,
 	context DjotContext,
@@ -235,12 +249,10 @@ func buildDjotAst(
 		openToken := list[i]
 		textBytes := document[openToken.Start:openToken.End]
 		closeToken := list[i+openToken.JumpToPair]
-		attributes := make(map[string]string)
 		nextI := i + openToken.JumpToPair + 1
+		attributes := (&tokenizer.Attributes{}).MergeWith(openToken.Attributes)
 		for nextI < len(list) && list[nextI].Type == djot_tokenizer.Attribute {
-			for key, value := range list[nextI].Attributes {
-				attributes[key] = value
-			}
+			attributes.MergeWith(list[nextI].Attributes)
 			nextI++
 		}
 		switch openToken.Type {
@@ -266,36 +278,35 @@ func buildDjotAst(
 					trimPadding(document, list[i+1:i+openToken.JumpToPair]),
 					textNode ||
 						openToken.Type == djot_tokenizer.ParagraphBlock ||
-						openToken.Type == djot_tokenizer.HeadingBlock,
+						openToken.Type == djot_tokenizer.HeadingBlock ||
+						openToken.Type == djot_tokenizer.CodeBlock,
 				),
 				Token:      textBytes,
-				Attributes: openToken.Attributes,
+				Attributes: attributes,
 			})
 		case djot_tokenizer.SymbolsInline:
 			nodes = append(nodes, Tree[DjotNode]{
-				Type: SymbolsNode,
-				Text: document[openToken.End:closeToken.Start],
+				Type:       SymbolsNode,
+				Text:       document[openToken.End:closeToken.Start],
+				Attributes: attributes,
 			})
 		case djot_tokenizer.AutolinkInline:
 			link := normalizeLinkText(document[openToken.End:closeToken.Start])
 			nodes = append(nodes, Tree[DjotNode]{
-				Type:     LinkNode,
-				Text:     link,
-				Children: []Tree[DjotNode]{{Type: TextNode, Text: link}},
+				Type:       LinkNode,
+				Text:       link,
+				Children:   []Tree[DjotNode]{{Type: TextNode, Text: link}},
+				Attributes: attributes,
 			})
 		case djot_tokenizer.VerbatimInline:
 			text := document[openToken.End:list[i+openToken.JumpToPair].Start]
 			if trimmed := bytes.Trim(text, " "); bytes.HasPrefix(trimmed, []byte("`")) && bytes.HasSuffix(trimmed, []byte("`")) {
 				text = text[1 : len(text)-1]
 			}
-			attributes := openToken.Attributes
 			if nextI < len(list) && list[nextI].Type == djot_tokenizer.RawFormatInline {
-				if attributes == nil {
-					attributes = make(map[string]string)
-				}
 				rawFormatOpen := list[nextI]
 				rawFormatClose := list[nextI+rawFormatOpen.JumpToPair]
-				attributes[RawFormatKey] = string(document[rawFormatOpen.End:rawFormatClose.Start])
+				attributes.Set(RawFormatKey, string(document[rawFormatOpen.End:rawFormatClose.Start]))
 				nextI += rawFormatOpen.JumpToPair + 1
 			}
 			nodes = append(nodes, Tree[DjotNode]{
@@ -304,45 +315,70 @@ func buildDjotAst(
 				Text:       text,
 				Attributes: attributes,
 			})
-		case djot_tokenizer.SpanInline, djot_tokenizer.ImageSpanInline:
+		case djot_tokenizer.ImageSpanInline:
+			var nextToken tokenizer.Token[djot_tokenizer.DjotToken]
 			if nextI < len(list) {
-				nextToken := list[nextI]
-				if nextToken.Type == djot_tokenizer.LinkUrlInline {
-					nodes = append(nodes, Tree[DjotNode]{
-						Type:     LinkNode,
-						Text:     normalizeLinkText(document[nextToken.End:list[nextI+nextToken.JumpToPair].Start]),
-						Children: buildDjotAst(document, context, list[i+1:i+openToken.JumpToPair], textNode),
-					})
-					nextI += nextToken.JumpToPair + 1
-				} else if nextToken.Type == djot_tokenizer.LinkReferenceInline {
-					reference := string(normalizeLinkText(document[nextToken.End:list[nextI+nextToken.JumpToPair].Start]))
-					//if len(reference) == 0 {
-					//	reference =
-					//}
-					nodes = append(nodes, Tree[DjotNode]{
-						Type:     LinkNode,
-						Text:     normalizeLinkText(context.References[reference]),
-						Children: buildDjotAst(document, context, list[i+1:i+openToken.JumpToPair], textNode),
-					})
-					nextI += nextToken.JumpToPair + 1
-				} else if len(attributes) > 0 {
-					nodes = append(nodes, Tree[DjotNode]{
-						Type:       SpanNode,
-						Children:   buildDjotAst(document, context, list[i+1:i+openToken.JumpToPair], textNode),
-						Attributes: attributes,
-					})
-				} else {
-					nodes = append(nodes, Tree[DjotNode]{
-						Type: TextNode,
-						Text: textBytes,
-					})
-					nodes = append(nodes, buildDjotAst(document, context, list[i+1:i+openToken.JumpToPair], textNode)...)
-					nodes = append(nodes, Tree[DjotNode]{
-						Type: TextNode,
-						Text: document[closeToken.Start:closeToken.End],
-					})
+				nextToken = list[nextI]
+			}
+			if nextToken.Type == djot_tokenizer.LinkUrlInline {
+				nodes = append(nodes, Tree[DjotNode]{
+					Type:       ImageNode,
+					Text:       normalizeLinkText(document[nextToken.End:list[nextI+nextToken.JumpToPair].Start]),
+					Attributes: attributes.Set(ImgAltKey, string(selectText(document, list[i+1:i+openToken.JumpToPair]))),
+				})
+				nextI += nextToken.JumpToPair + 1
+			} else if nextToken.Type == djot_tokenizer.LinkReferenceInline {
+				reference := normalizeLinkText(document[nextToken.End:list[nextI+nextToken.JumpToPair].Start])
+				if len(reference) == 0 {
+					reference = selectText(document, list[i+1:i+openToken.JumpToPair])
 				}
-			} else if nextI >= len(list) {
+				nodes = append(nodes, Tree[DjotNode]{
+					Type:       ImageNode,
+					Text:       normalizeLinkText(context.References[string(reference)]),
+					Attributes: attributes.Set(ImgAltKey, string(selectText(document, list[i+1:i+openToken.JumpToPair]))),
+				})
+				nextI += nextToken.JumpToPair + 1
+			} else {
+				nodes = append(nodes, Tree[DjotNode]{
+					Type: TextNode,
+					Text: textBytes,
+				})
+				nodes = append(nodes, buildDjotAst(document, context, list[i+1:i+openToken.JumpToPair], textNode)...)
+				nodes = append(nodes, Tree[DjotNode]{
+					Type: TextNode,
+					Text: document[closeToken.Start:closeToken.End],
+				})
+			}
+		case djot_tokenizer.SpanInline:
+			var nextToken tokenizer.Token[djot_tokenizer.DjotToken]
+			if nextI < len(list) {
+				nextToken = list[nextI]
+			}
+			if nextToken.Type == djot_tokenizer.LinkUrlInline {
+				nodes = append(nodes, Tree[DjotNode]{
+					Type:     LinkNode,
+					Text:     normalizeLinkText(document[nextToken.End:list[nextI+nextToken.JumpToPair].Start]),
+					Children: buildDjotAst(document, context, list[i+1:i+openToken.JumpToPair], textNode),
+				})
+				nextI += nextToken.JumpToPair + 1
+			} else if nextToken.Type == djot_tokenizer.LinkReferenceInline {
+				reference := normalizeLinkText(document[nextToken.End:list[nextI+nextToken.JumpToPair].Start])
+				if len(reference) == 0 {
+					reference = selectText(document, list[i+1:i+openToken.JumpToPair])
+				}
+				nodes = append(nodes, Tree[DjotNode]{
+					Type:     LinkNode,
+					Text:     normalizeLinkText(context.References[string(reference)]),
+					Children: buildDjotAst(document, context, list[i+1:i+openToken.JumpToPair], textNode),
+				})
+				nextI += nextToken.JumpToPair + 1
+			} else if attributes.Size() > 0 && openToken.Type == djot_tokenizer.SpanInline {
+				nodes = append(nodes, Tree[DjotNode]{
+					Type:       SpanNode,
+					Children:   buildDjotAst(document, context, list[i+1:i+openToken.JumpToPair], textNode),
+					Attributes: attributes,
+				})
+			} else {
 				nodes = append(nodes, Tree[DjotNode]{
 					Type: TextNode,
 					Text: textBytes,
@@ -391,7 +427,7 @@ func buildDjotAst(
 			}
 		case djot_tokenizer.None:
 			if textNode {
-				if len(attributes) > 0 {
+				if attributes.Size() > 0 {
 					split := bytes.LastIndexByte(textBytes, ' ')
 					nodes = append(nodes, Tree[DjotNode]{Type: TextNode, Text: textBytes[:split+1]})
 					nodes = append(nodes, Tree[DjotNode]{

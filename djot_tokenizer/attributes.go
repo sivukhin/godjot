@@ -34,8 +34,8 @@ func MatchQuotedString(r tokenizer.TextReader, s tokenizer.ReaderState) (value [
 	}
 }
 
-func MatchDjotAttribute(r tokenizer.TextReader, s tokenizer.ReaderState) (attributes map[string]string, next tokenizer.ReaderState) {
-	attributes = make(map[string]string, 0)
+func MatchDjotAttribute(r tokenizer.TextReader, s tokenizer.ReaderState) (attributes *tokenizer.Attributes, next tokenizer.ReaderState) {
+	attributes = &tokenizer.Attributes{}
 	next = r.Token(s, "{")
 	if !next.Matched() {
 		return
@@ -76,15 +76,15 @@ func MatchDjotAttribute(r tokenizer.TextReader, s tokenizer.ReaderState) (attrib
 		}
 		key := r.Select(startKey, next)
 		if key[0] == '.' {
-			if class, hasClass := attributes[DjotAttributeClassKey]; hasClass {
-				attributes[DjotAttributeClassKey] = class + " " + key[1:]
+			if class, hasClass := attributes.TryGet(DjotAttributeClassKey); hasClass {
+				attributes.Set(DjotAttributeClassKey, class+" "+key[1:])
 			} else {
-				attributes[DjotAttributeClassKey] = key[1:]
+				attributes.Set(DjotAttributeClassKey, key[1:])
 			}
 			continue
 		}
 		if key[0] == '#' {
-			attributes[DjotAttributeIdKey] = key[1:]
+			attributes.Set(DjotAttributeIdKey, key[1:])
 			continue
 		}
 
@@ -94,14 +94,14 @@ func MatchDjotAttribute(r tokenizer.TextReader, s tokenizer.ReaderState) (attrib
 		}
 		startValue := next
 		if value, quoteEnd := MatchQuotedString(r, next); quoteEnd.Matched() {
-			attributes[key] = string(value)
+			attributes.Set(key, string(value))
 			next = quoteEnd
 		} else {
 			next = r.MaskRepeat(next, AttributeTokenMask, 1)
 			if !next.Matched() {
 				return
 			}
-			attributes[key] = r.Select(startValue, next)
+			attributes.Set(key, r.Select(startValue, next))
 		}
 	}
 }

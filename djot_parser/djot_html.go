@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/sivukhin/godjot/djot_tokenizer"
 	"github.com/sivukhin/godjot/html_writer"
+	"github.com/sivukhin/godjot/tokenizer"
 )
 
 func ConvertDjotToHtml(builder *html_writer.HtmlWriter, format string, trees ...Tree[DjotNode]) {
@@ -38,40 +39,59 @@ func ConvertDjotToHtml(builder *html_writer.HtmlWriter, format string, trees ...
 		case ParagraphNode:
 			builder.InTag("p")(func() { ConvertDjotToHtml(builder, format, tree.Children...) })
 			builder.WriteString("\n")
+		case QuoteNode:
+			builder.InTag("blockquote")(func() {
+				builder.WriteString("\n")
+				ConvertDjotToHtml(builder, format, tree.Children...)
+			})
+			builder.WriteString("\n")
+		case CodeNode:
+			builder.InTag("pre")(func() {
+				builder.InTag("code")(func() {
+					ConvertDjotToHtml(builder, format, tree.Children...)
+				})
+			})
+			builder.WriteString("\n")
 		case DocumentNode:
 			ConvertDjotToHtml(builder, format, tree.Children...)
-		case LinkNode:
-			var attributes []html_writer.HtmlAttribute
+		case ImageNode:
+			attributes := tree.Attributes.Entries()
 			if bytes.Contains(tree.Text, []byte("@")) {
-				attributes = append(attributes, html_writer.HtmlAttribute{Key: "href", Value: "mailto:" + string(tree.Text)})
+				attributes = append(attributes, tokenizer.AttributeEntry{Key: "src", Value: "mailto:" + string(tree.Text)})
 			} else if len(tree.Text) > 0 {
-				attributes = append(attributes, html_writer.HtmlAttribute{Key: "href", Value: string(tree.Text)})
+				attributes = append(attributes, tokenizer.AttributeEntry{Key: "src", Value: string(tree.Text)})
+			}
+			builder.Tag("img", attributes...)
+		case LinkNode:
+			var attributes []tokenizer.AttributeEntry
+			if bytes.Contains(tree.Text, []byte("@")) {
+				attributes = append(attributes, tokenizer.AttributeEntry{Key: "href", Value: "mailto:" + string(tree.Text)})
+			} else if len(tree.Text) > 0 {
+				attributes = append(attributes, tokenizer.AttributeEntry{Key: "href", Value: string(tree.Text)})
 			}
 			builder.InTag("a", attributes...)(func() { ConvertDjotToHtml(builder, format, tree.Children...) })
 		case VerbatimNode:
-			if _, ok := tree.Attributes[djot_tokenizer.InlineMathKey]; ok {
-				builder.InTag("span", html_writer.HtmlAttribute{Key: "class", Value: "math inline"})(func() {
+			if _, ok := tree.Attributes.TryGet(djot_tokenizer.InlineMathKey); ok {
+				builder.InTag("span", tokenizer.AttributeEntry{Key: "class", Value: "math inline"})(func() {
 					builder.WriteString("\\(")
 					builder.WriteBytes(tree.Text)
 					builder.WriteString("\\)")
 				})
-			} else if _, ok := tree.Attributes[djot_tokenizer.DisplayMathKey]; ok {
-				builder.InTag("span", html_writer.HtmlAttribute{Key: "class", Value: "math display"})(func() {
+			} else if _, ok := tree.Attributes.TryGet(djot_tokenizer.DisplayMathKey); ok {
+				builder.InTag("span", tokenizer.AttributeEntry{Key: "class", Value: "math display"})(func() {
 					builder.WriteString("\\[")
 					builder.WriteBytes(tree.Text)
 					builder.WriteString("\\]")
 				})
-			} else if rawFormat := tree.Attributes[RawFormatKey]; rawFormat == format {
+			} else if rawFormat := tree.Attributes.Get(RawFormatKey); rawFormat == format {
 				builder.WriteBytes(tree.Text)
 			} else {
 				builder.InTag("code")(func() { builder.WriteBytes(tree.Text) })
 			}
 		case SpanNode:
-			attributes := make([]html_writer.HtmlAttribute, 0)
-			for key, value := range tree.Attributes {
-				attributes = append(attributes, html_writer.HtmlAttribute{Key: key, Value: value})
-			}
-			builder.InTag("span", attributes...)(func() { ConvertDjotToHtml(builder, format, tree.Children...) })
+			builder.InTag("span", tree.Attributes.Entries()...)(func() {
+				ConvertDjotToHtml(builder, format, tree.Children...)
+			})
 		case LineBreakNode:
 			builder.Tag("br")
 		case TextNode:

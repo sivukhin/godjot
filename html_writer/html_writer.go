@@ -1,18 +1,18 @@
 package html_writer
 
-import "strings"
+import (
+	"github.com/sivukhin/godjot/tokenizer"
+	"sort"
+	"strings"
+)
 
 type HtmlWriter struct {
 	Builder strings.Builder
 }
 
-type HtmlAttribute struct {
-	Key, Value string
-}
-
 func (w *HtmlWriter) String() string { return w.Builder.String() }
 
-func (w *HtmlWriter) Tag(tag string, attributes ...HtmlAttribute) {
+func (w *HtmlWriter) Tag(tag string, attributes ...tokenizer.AttributeEntry) {
 	w.Builder.WriteString("<")
 	w.Builder.WriteString(tag)
 	for _, attribute := range attributes {
@@ -25,10 +25,27 @@ func (w *HtmlWriter) Tag(tag string, attributes ...HtmlAttribute) {
 	w.Builder.WriteString(">")
 }
 
-func (w *HtmlWriter) InTag(tag string, attributes ...HtmlAttribute) func(func()) {
+func (w *HtmlWriter) InTag(tag string, attributes ...tokenizer.AttributeEntry) func(func()) {
 	return func(content func()) {
 		w.Builder.WriteString("<")
 		w.Builder.WriteString(tag)
+		sort.Slice(attributes, func(i, j int) bool {
+			iStart := attributes[i].Key
+			jStart := attributes[j].Key
+			if iStart == "id" && jStart != "id" {
+				return true
+			}
+			if iStart != "id" && jStart == "id" {
+				return false
+			}
+			if iStart == "class" && jStart != "class" {
+				return true
+			}
+			if iStart != "class" && jStart == "class" {
+				return false
+			}
+			return i < j
+		})
 		for _, attribute := range attributes {
 			w.Builder.WriteString(" ")
 			w.Builder.WriteString(attribute.Key)

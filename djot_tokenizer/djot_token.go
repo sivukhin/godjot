@@ -26,6 +26,7 @@ const (
 	ThematicBreakToken
 
 	Attribute
+	Padding
 
 	VerbatimInline
 	EscapedSymbolInline
@@ -81,6 +82,8 @@ func (t DjotToken) String() string {
 		return "ThematicBreakToken"
 	case Attribute:
 		return "Attribute"
+	case Padding:
+		return "Padding"
 	case VerbatimInline:
 		return "VerbatimInline"
 	case EscapedSymbolInline:

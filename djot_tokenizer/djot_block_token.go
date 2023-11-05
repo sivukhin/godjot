@@ -70,11 +70,12 @@ func MatchBlockToken(
 			return
 		}
 
+		attributes := tokenizer.Attributes{}
 		token = tokenizer.Token[DjotToken]{
 			Type:       tokenType,
 			Start:      int(s),
 			End:        int(next),
-			Attributes: map[string]string{attributeKey: r.Select(metaStart, metaEnd)},
+			Attributes: attributes.Set(attributeKey, r.Select(metaStart, metaEnd)),
 		}
 	case ReferenceDefBlock, FootnoteDefBlock:
 		var blockToken string
@@ -101,7 +102,7 @@ func MatchBlockToken(
 			next = tokenizer.Unmatched
 			return
 		}
-		if bytes.Count(r[s:next], []byte("-*")) < 3 {
+		if bytes.Count(r[s:next], []byte("*")) < 3 || bytes.Count(r[s:next], []byte("-")) < 3 {
 			next = tokenizer.Unmatched
 			return
 		}

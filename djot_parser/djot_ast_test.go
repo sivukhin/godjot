@@ -15,20 +15,10 @@ import (
 	"testing"
 )
 
-func printTextAst(builder *strings.Builder, trees ...Tree[DjotNode]) {
-	for _, tree := range trees {
-		switch tree.Type {
-		case TextNode:
-			builder.Write(tree.Text)
-		default:
-			printTextAst(builder, tree.Children...)
-		}
-	}
-}
-
 func printDjot(text string) string {
 	document := []byte(text)
 	tokens := djot_tokenizer.BuildDjotTokens(document)
+	fmt.Printf("tokens: %v\n", tokens)
 	context := BuildDjotContext(document, tokens)
 	ast := buildDjotAst(document, context, tokens, false)
 	builder := html_writer.HtmlWriter{}

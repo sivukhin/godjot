@@ -6,134 +6,151 @@ import (
 	"strings"
 )
 
-func ProcessDjotInlineTokens(
-	tokenStack *tokenizer.TokenStack[DjotToken],
-	reader tokenizer.TextReader,
-	state tokenizer.ReaderState,
-) tokenizer.ReaderState {
-inlineParsingLoop:
-	for !reader.Empty(state) {
-		openInline := tokenStack.LastLevel().FirstOrDefault()
-		openInlineType := openInline.Type
+func BuildInlineDjotTokens(
+	document []byte,
+	parts ...tokenizer.Range,
+) []tokenizer.Token[DjotToken] {
+	if len(parts) == 0 {
+		parts = []tokenizer.Range{{Start: 0, End: len(document)}}
+	}
 
-		lastInline := tokenStack.LastLevel().LastOrDefault()
+	tokenStack := tokenizer.NewTokenStack[DjotToken]()
+	leftDocumentPosition, rightDocumentPosition := parts[0].Start, parts[len(parts)-1].End
+	tokenStack.OpenLevelAt(tokenizer.Token[DjotToken]{Type: ParagraphBlock, Start: leftDocumentPosition, End: leftDocumentPosition})
+	for _, part := range parts {
+		reader, state := tokenizer.TextReader(document[:part.End]), tokenizer.ReaderState(part.Start)
 
-		// Check if verbatim is open - then we can't process any inline-level elements
-		if openInlineType == VerbatimInline {
-			next := MatchInlineToken(reader, state, VerbatimInline^tokenizer.Open)
-			if !next.Matched() {
-				state++
-				continue
-			}
-			openToken := reader.Select(tokenizer.ReaderState(openInline.Start), tokenizer.ReaderState(openInline.End))
-			closeToken := reader.Select(state, next)
-			if strings.TrimLeft(openToken, "$") != closeToken {
-				state = next
-				continue
-			}
-			tokenStack.CloseLevelAt(tokenizer.Token[DjotToken]{
-				Type:  VerbatimInline ^ tokenizer.Open,
-				Start: int(state),
-				End:   int(next),
-			})
-			state = next
-			continue
-		}
+	inlineParsingLoop:
+		for !reader.Empty(state) {
+			openInline := tokenStack.LastLevel().FirstOrDefault()
+			openInlineType := openInline.Type
 
-		// Try match inline attribute
-		if attributes, next := MatchDjotAttribute(reader, state); next.Matched() {
-			tokenStack.LastLevel().Push(tokenizer.Token[DjotToken]{
-				Type:       Attribute,
-				Start:      int(state),
-				End:        int(next),
-				Attributes: attributes,
-			})
-			state = next
-			continue
-		}
+			lastInline := tokenStack.LastLevel().LastOrDefault()
 
-		// EscapedSymbolInline / SmartSymbolInline is non-paired tokens - so we should treat it separately
-		for _, tokenType := range []DjotToken{EscapedSymbolInline, SmartSymbolInline} {
-			if next := MatchInlineToken(reader, state, tokenType); next.Matched() {
-				tokenStack.LastLevel().Push(tokenizer.Token[DjotToken]{Type: tokenType, Start: int(state), End: int(next)})
-				state = next
-				continue inlineParsingLoop
-			}
-		}
-
-		for _, tokenType := range []DjotToken{
-			RawFormatInline,
-			VerbatimInline,
-			ImageSpanInline,
-			LinkUrlInline,
-			LinkReferenceInline,
-			AutolinkInline,
-			EmphasisInline,
-			StrongInline,
-			HighlightedInline,
-			SubscriptInline,
-			SuperscriptInline,
-			InsertInline,
-			DeleteInline,
-			FootnoteReferenceInline,
-			SpanInline,
-			SymbolsInline,
-		} {
-			// Closing tokens take precedence because of greedy nature of parsing
-			next := MatchInlineToken(reader, state, tokenType^tokenizer.Open)
-			// EmphasisInline / StrongInline elements must contain something in between of open and close tokens
-			forbidClose := (tokenType == EmphasisInline && lastInline.Type == EmphasisInline && lastInline.End == int(state)) ||
-				(tokenType == StrongInline && lastInline.Type == StrongInline && lastInline.End == int(state))
-			if !forbidClose && next.Matched() && tokenStack.PopForgetUntil(tokenType) {
-				tokenStack.CloseLevelAt(tokenizer.Token[DjotToken]{Type: tokenType ^ tokenizer.Open, Start: int(state), End: int(next)})
-				state = next
-				continue inlineParsingLoop
-			}
-			// RawFormatInline must be preceded by VerbatimInline inline element only closed properly
-			if tokenType == RawFormatInline && lastInline.Type != VerbatimInline^tokenizer.Open {
-				continue
-			}
-			// LinkReferenceInline / LinkUrlInline must be preceded by SpanInline / ImageSpanInline inline element only closed properly
-			if (tokenType == LinkReferenceInline || tokenType == LinkUrlInline) &&
-				lastInline.Type != SpanInline^tokenizer.Open && lastInline.Type != ImageSpanInline^tokenizer.Open {
-				continue
-			}
-			next = MatchInlineToken(reader, state, tokenType)
-			if next.Matched() {
-				var attributes tokenizer.Attributes
-				token := reader[state:next]
-				if tokenType == VerbatimInline && bytes.HasPrefix(token, []byte("$`")) {
-					attributes.Set(InlineMathKey, "")
-				} else if tokenType == VerbatimInline && bytes.HasPrefix(token, []byte("$$`")) {
-					attributes.Set(DisplayMathKey, "")
+			// Check if verbatim is open - then we can't process any inline-level elements
+			if openInlineType == VerbatimInline {
+				next := MatchInlineToken(reader, state, VerbatimInline^tokenizer.Open)
+				if !next.Matched() {
+					state++
+					continue
 				}
-				tokenStack.OpenLevelAt(tokenizer.Token[DjotToken]{
-					Type:       tokenType,
-					Start:      int(state),
-					End:        int(next),
-					Attributes: &attributes,
+				openToken := reader.Select(tokenizer.ReaderState(openInline.Start), tokenizer.ReaderState(openInline.End))
+				closeToken := reader.Select(state, next)
+				if strings.TrimLeft(openToken, "$") != closeToken {
+					state = next
+					continue
+				}
+				tokenStack.CloseLevelAt(tokenizer.Token[DjotToken]{
+					Type:  VerbatimInline ^ tokenizer.Open,
+					Start: int(state),
+					End:   int(next),
 				})
 				state = next
-				continue inlineParsingLoop
+				continue
 			}
-		}
 
-		// No tokens matched - proceed with next symbol
-		state++
+			// Try match inline attribute
+			if attributes, next := MatchDjotAttribute(reader, state); next.Matched() {
+				tokenStack.LastLevel().Push(tokenizer.Token[DjotToken]{
+					Type:       Attribute,
+					Start:      int(state),
+					End:        int(next),
+					Attributes: attributes,
+				})
+				state = next
+				continue
+			}
+
+			// EscapedSymbolInline / SmartSymbolInline is non-paired tokens - so we should treat it separately
+			for _, tokenType := range []DjotToken{EscapedSymbolInline, SmartSymbolInline} {
+				if next := MatchInlineToken(reader, state, tokenType); next.Matched() {
+					tokenStack.LastLevel().Push(tokenizer.Token[DjotToken]{Type: tokenType, Start: int(state), End: int(next)})
+					state = next
+					continue inlineParsingLoop
+				}
+			}
+
+			for _, tokenType := range []DjotToken{
+				RawFormatInline,
+				VerbatimInline,
+				ImageSpanInline,
+				LinkUrlInline,
+				LinkReferenceInline,
+				AutolinkInline,
+				EmphasisInline,
+				StrongInline,
+				HighlightedInline,
+				SubscriptInline,
+				SuperscriptInline,
+				InsertInline,
+				DeleteInline,
+				FootnoteReferenceInline,
+				SpanInline,
+				SymbolsInline,
+			} {
+				// Closing tokens take precedence because of greedy nature of parsing
+				next := MatchInlineToken(reader, state, tokenType^tokenizer.Open)
+				// EmphasisInline / StrongInline elements must contain something in between of open and close tokens
+				forbidClose := (tokenType == EmphasisInline && lastInline.Type == EmphasisInline && lastInline.End == int(state)) ||
+					(tokenType == StrongInline && lastInline.Type == StrongInline && lastInline.End == int(state))
+				if !forbidClose && next.Matched() && tokenStack.PopForgetUntil(tokenType) {
+					tokenStack.CloseLevelAt(tokenizer.Token[DjotToken]{Type: tokenType ^ tokenizer.Open, Start: int(state), End: int(next)})
+					state = next
+					continue inlineParsingLoop
+				}
+				// RawFormatInline must be preceded by VerbatimInline inline element only closed properly
+				if tokenType == RawFormatInline && lastInline.Type != VerbatimInline^tokenizer.Open {
+					continue
+				}
+				// LinkReferenceInline / LinkUrlInline must be preceded by SpanInline / ImageSpanInline inline element only closed properly
+				if (tokenType == LinkReferenceInline || tokenType == LinkUrlInline) &&
+					lastInline.Type != SpanInline^tokenizer.Open && lastInline.Type != ImageSpanInline^tokenizer.Open {
+					continue
+				}
+				next = MatchInlineToken(reader, state, tokenType)
+				if next.Matched() {
+					var attributes tokenizer.Attributes
+					token := reader[state:next]
+					if tokenType == VerbatimInline && bytes.HasPrefix(token, []byte("$`")) {
+						attributes.Set(InlineMathKey, "")
+					} else if tokenType == VerbatimInline && bytes.HasPrefix(token, []byte("$$`")) {
+						attributes.Set(DisplayMathKey, "")
+					}
+					tokenStack.OpenLevelAt(tokenizer.Token[DjotToken]{
+						Type:       tokenType,
+						Start:      int(state),
+						End:        int(next),
+						Attributes: &attributes,
+					})
+					state = next
+					continue inlineParsingLoop
+				}
+			}
+
+			// No tokens matched - proceed with next symbol
+			state++
+		}
 	}
-	return state
+	if tokenStack.LastLevel().FirstOrDefault().Type == VerbatimInline {
+		tokenStack.CloseLevelAt(tokenizer.Token[DjotToken]{Type: VerbatimInline ^ tokenizer.Open, Start: rightDocumentPosition, End: rightDocumentPosition})
+	}
+	tokenStack.PopForgetUntil(ParagraphBlock)
+	tokenStack.CloseLevelAt(tokenizer.Token[DjotToken]{Type: ParagraphBlock, Start: rightDocumentPosition, End: rightDocumentPosition})
+	tokens := *tokenStack.LastLevel()
+	return tokens[1 : len(tokens)-1]
 }
 
 func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 	var (
 		lineTokenizer = tokenizer.LineTokenizer{Document: document}
 
+		inlineParts = make([]tokenizer.Range, 0)
+
 		blockLineOffset  = []int{0}
 		blockTokenOffset = []int{0}
 
 		blockTokens = []tokenizer.Token[DjotToken]{{Type: DocumentBlock, Start: 0, End: 0}}
-		finalTokens = tokenizer.TokenList[DjotToken]{{Type: DocumentBlock, Start: 0, End: 0}}
-		inlineStack = tokenizer.NewTokenStack[DjotToken]()
+		finalTokens = []tokenizer.Token[DjotToken]{{Type: DocumentBlock, Start: 0, End: 0}}
 	)
 
 	popMetadata := func() {
@@ -142,24 +159,17 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 		blockTokens = blockTokens[:len(blockTokens)-1]
 	}
 	openBlockLevel := func(token tokenizer.Token[DjotToken]) {
-		if (token.Type == ParagraphBlock || token.Type == HeadingBlock) && inlineStack.Empty() {
-			inlineStack.OpenLevelAt(token)
-		}
-		finalTokens.Push(token)
+		finalTokens = append(finalTokens, token)
 		blockTokenOffset = append(blockTokenOffset, len(finalTokens)-1)
 		blockTokens = append(blockTokens, token)
 	}
 	closeBlockLevelsUntil := func(start, end, level int) {
-		if !inlineStack.Empty() {
-			inlineStack.PopForgetUntil(ParagraphBlock)
-			inlineStack.CloseLevelAt(tokenizer.Token[DjotToken]{Type: ParagraphBlock, Start: start, End: start})
-			for _, token := range inlineStack.Levels[0][1 : len(inlineStack.Levels[0])-1] {
-				finalTokens.Push(token)
-			}
-			inlineStack = tokenizer.NewTokenStack[DjotToken]()
+		if len(inlineParts) != 0 {
+			finalTokens = append(finalTokens, BuildInlineDjotTokens(document, inlineParts...)...)
+			inlineParts = nil
 		}
 		for i := len(blockTokens) - 1; i > level; i-- {
-			finalTokens.Push(tokenizer.Token[DjotToken]{
+			finalTokens = append(finalTokens, tokenizer.Token[DjotToken]{
 				Type:  blockTokens[i].Type ^ tokenizer.Open,
 				Start: start,
 				End:   end,
@@ -189,7 +199,7 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 				next = reader.EmptyOrWhiteSpace(next)
 			}
 			if next.Matched() {
-				finalTokens.Push(tokenizer.Token[DjotToken]{
+				finalTokens = append(finalTokens, tokenizer.Token[DjotToken]{
 					Type:       Attribute,
 					Start:      int(state),
 					End:        int(next),
@@ -219,10 +229,6 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 				state = next
 				resetBlockAt = i
 			}
-		}
-
-		if int(state) != lineStart {
-			finalTokens.Push(tokenizer.Token[DjotToken]{Type: Padding, Start: lineStart, End: int(state)})
 		}
 
 		// Check for empty line and collapse all levels until resetBlockAt
@@ -291,7 +297,7 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 			}
 
 			if lastBlockType == ParagraphBlock || lastBlockType == HeadingBlock {
-				state = ProcessDjotInlineTokens(&inlineStack, reader, state)
+				inlineParts = append(inlineParts, tokenizer.Range{Start: int(state), End: lineEnd})
 				break blockParsingLoop
 			}
 			if lastBlockType == CodeBlock {

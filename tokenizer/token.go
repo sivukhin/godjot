@@ -25,3 +25,5 @@ func (t Token[T]) PrefixLength(document []byte, b byte) int {
 	}
 	return i
 }
+
+type Range struct{ Start, End int }

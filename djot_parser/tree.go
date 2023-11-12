@@ -8,3 +8,10 @@ type TreeNode[T ~int] struct {
 	Children   []TreeNode[T]
 	Text       []byte
 }
+
+func (n TreeNode[T]) Traverse(f func(node TreeNode[T])) {
+	f(n)
+	for _, child := range n.Children {
+		child.Traverse(f)
+	}
+}

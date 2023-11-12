@@ -72,10 +72,10 @@ func ConvertDjotToHtml(builder *html_writer.HtmlWriter, format string, trees ...
 		case StrongNode:
 			builder.InTag("strong")(func() { ConvertDjotToHtml(builder, format, tree.Children...) })
 		case ParagraphNode:
-			builder.InTag("p")(func() { ConvertDjotToHtml(builder, format, tree.Children...) })
+			builder.InTag("p", tree.Attributes.Entries()...)(func() { ConvertDjotToHtml(builder, format, tree.Children...) })
 			builder.WriteString("\n")
 		case QuoteNode:
-			builder.InTag("blockquote")(func() {
+			builder.InTag("blockquote", tree.Attributes.Entries()...)(func() {
 				builder.WriteString("\n")
 				ConvertDjotToHtml(builder, format, tree.Children...)
 			})

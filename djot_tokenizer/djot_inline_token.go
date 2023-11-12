@@ -10,7 +10,7 @@ var (
 	DollarByteMask             = tokenizer.NewByteMask([]byte("$"))
 	BacktickByteMask           = tokenizer.NewByteMask([]byte("`"))
 	SmartSymbolByteMask        = tokenizer.NewByteMask([]byte("\n'\""))
-	AlphaNumericSymbolByteMask = tokenizer.NewByteMask([]byte("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"))
+	AlphaNumericSymbolByteMask = tokenizer.NewByteMask([]byte("+-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"))
 )
 
 func MatchInlineToken(

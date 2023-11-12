@@ -96,4 +96,9 @@ func TestManualExamples(t *testing.T) {
 		result := printDjot("link http://localhost:3000/debug/pprof/profile?seconds=10 -o profile.pprof")
 		require.Equal(t, "<p>link http://localhost:3000/debug/pprof/profile?seconds=10 -o profile.pprof</p>\n", result)
 	})
+	t.Run("attributes", func(t *testing.T) {
+		ast := BuildDjotAst([]byte(`{key="value"}
+# Header`))
+		fmt.Printf("ast: %v\n", ast)
+	})
 }

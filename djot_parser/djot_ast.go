@@ -246,7 +246,7 @@ func detectQuoteDirection(document []byte, position int) QuoteDirection {
 	if unicode.IsPunct(rune(document[position+1])) {
 		return CloseQuote
 	}
-	return OpenQuote
+	return CloseQuote
 }
 
 func trimPadding(document []byte, list tokenizer.TokenList[djot_tokenizer.DjotToken]) tokenizer.TokenList[djot_tokenizer.DjotToken] {
@@ -433,15 +433,29 @@ func buildDjotAst(
 	{
 		i := 0
 		for i < len(list) {
+			attributes := &tokenizer.Attributes{}
+			if !textNode {
+				for i < len(list) && list[i].Type == djot_tokenizer.Attribute {
+					attributes.MergeWith(list[i].Attributes)
+					i++
+				}
+			}
+			if i == len(list) {
+				break
+			}
 			openToken := list[i]
 			textBytes := document[openToken.Start:openToken.End]
 			closeToken := list[i+openToken.JumpToPair]
 			nextI := i + openToken.JumpToPair + 1
-			attributes := (&tokenizer.Attributes{}).MergeWith(openToken.Attributes)
-			for nextI < len(list) && list[nextI].Type == djot_tokenizer.Attribute {
-				attributes.MergeWith(list[nextI].Attributes)
-				nextI++
+			attributes = attributes.MergeWith(openToken.Attributes)
+			if textNode {
+				for nextI < len(list) && list[nextI].Type == djot_tokenizer.Attribute {
+					attributes.MergeWith(list[nextI].Attributes)
+					nextI++
+
+				}
 			}
+			fmt.Printf("attr: %v, token: %v\n", attributes.GoMap(), openToken)
 			if groupElementsPop[i] > 0 {
 				groups = groups[:len(groups)-groupElementsPop[i]]
 				nodesRef = groups[len(groups)-1]

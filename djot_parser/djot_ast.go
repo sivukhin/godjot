@@ -350,6 +350,12 @@ func detectListProps(document []byte, token tokenizer.Token[djot_tokenizer.DjotT
 	panic(fmt.Errorf("unexpected list token: %v", string(document[token.Start:token.End])))
 }
 
+func BuildDjotAst(document []byte) []TreeNode[DjotNode] {
+	tokens := djot_tokenizer.BuildDjotTokens(document)
+	context := BuildDjotContext(document, tokens)
+	return buildDjotAst(document, context, tokens, false)
+}
+
 func buildDjotAst(
 	document []byte,
 	context DjotContext,
@@ -642,7 +648,7 @@ func buildDjotAst(
 				if textNode {
 					text := textBytes
 					if text[len(text)-1] == '\n' {
-						*nodesRef = append(*nodesRef, TreeNode[DjotNode]{Type: LineBreakNode}, TreeNode[DjotNode]{Type: TextNode, Text: []byte("\n")})
+						*nodesRef = append(*nodesRef, TreeNode[DjotNode]{Type: LineBreakNode})
 					} else {
 						*nodesRef = append(*nodesRef, TreeNode[DjotNode]{Type: TextNode, Text: text[1:]})
 					}

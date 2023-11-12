@@ -17,10 +17,7 @@ import (
 
 func printDjot(text string) string {
 	document := []byte(text)
-	tokens := djot_tokenizer.BuildDjotTokens(document)
-	fmt.Printf("list: %v\n", tokens)
-	context := BuildDjotContext(document, tokens)
-	ast := buildDjotAst(document, context, tokens, false)
+	ast := BuildDjotAst(document)
 	fmt.Printf("ast: %v\n", ast)
 	builder := html_writer.HtmlWriter{}
 	ConvertDjotToHtml(&builder, "html", ast...)
@@ -30,7 +27,7 @@ func printDjot(text string) string {
 const examplesDir = "examples"
 
 func TestDownloadExample(t *testing.T) {
-	//t.Skip("manual test for download of djot examples from official docs")
+	t.Skip("manual test for download of djot examples from official docs")
 
 	normalize := func(line string) string {
 		line = strings.Trim(line, "\r\n\t")

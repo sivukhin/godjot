@@ -121,6 +121,7 @@ func ConvertDjotToHtml(builder *html_writer.HtmlWriter, format string, trees ...
 			})
 		case LineBreakNode:
 			builder.Tag("br")
+			builder.WriteString("\n")
 		case TextNode:
 			builder.WriteBytes(tree.Text)
 		}

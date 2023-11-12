@@ -455,7 +455,6 @@ func buildDjotAst(
 
 				}
 			}
-			fmt.Printf("attr: %v, token: %v\n", attributes.GoMap(), openToken)
 			if groupElementsPop[i] > 0 {
 				groups = groups[:len(groups)-groupElementsPop[i]]
 				nodesRef = groups[len(groups)-1]

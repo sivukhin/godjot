@@ -6,9 +6,9 @@ import (
 )
 
 var (
-	NotSpaceByteMask      = tokenizer.SpaceByteMask.Negate()
+	NotSpaceByteMask      = tokenizer.SpaceNewLineByteMask.Negate()
 	NotBracketByteMask    = tokenizer.NewByteMask([]byte("]")).Negate()
-	ThematicBreakByteMask = tokenizer.NewByteMask([]byte(" \t*-"))
+	ThematicBreakByteMask = tokenizer.NewByteMask([]byte(" \t\n*-"))
 
 	DigitByteMask      = tokenizer.NewByteMask([]byte("0123456789"))
 	LowerAlphaByteMask = tokenizer.NewByteMask([]byte("abcdefghijklmnopqrstuvwxyz"))
@@ -37,7 +37,7 @@ func MatchBlockToken(
 		if next = r.Token(s, ">"); !next.Matched() {
 			return
 		}
-		if next = r.Mask(next, tokenizer.SpaceByteMask); !next.Matched() {
+		if next = r.Mask(next, tokenizer.SpaceNewLineByteMask); !next.Matched() {
 			return
 		}
 		token = tokenizer.Token[DjotToken]{Type: tokenType, Start: int(s), End: int(next)}
@@ -56,7 +56,7 @@ func MatchBlockToken(
 		}
 
 		next = r.MaskRepeat(next, tokenizer.SpaceByteMask, 0) // will always match because count = 0
-		if r.Empty(next) {
+		if r.EmptyOrWhiteSpace(next).Matched() {
 			token = tokenizer.Token[DjotToken]{Type: tokenType, Start: int(s), End: int(next)}
 			return
 		}
@@ -102,7 +102,7 @@ func MatchBlockToken(
 			next = tokenizer.Unmatched
 			return
 		}
-		if bytes.Count(r[s:next], []byte("*")) < 3 || bytes.Count(r[s:next], []byte("-")) < 3 {
+		if bytes.Count(r[s:next], []byte("*")) < 3 && bytes.Count(r[s:next], []byte("-")) < 3 {
 			next = tokenizer.Unmatched
 			return
 		}
@@ -111,6 +111,7 @@ func MatchBlockToken(
 		for _, simpleToken := range []string{"+ ", "* ", "- ", ": ", "- [ ] ", "- [x] ", "- [X] "} {
 			next = r.Token(s, simpleToken)
 			if next.Matched() {
+				token = tokenizer.Token[DjotToken]{Type: tokenType, Start: int(s), End: int(next)}
 				return
 			}
 		}

@@ -5,13 +5,15 @@ import (
 	"fmt"
 	"github.com/sivukhin/godjot/djot_tokenizer"
 	"github.com/sivukhin/godjot/tokenizer"
+	"strconv"
 	"strings"
 	"unicode"
 )
 
 const (
-	RawFormatKey    = "$RawFormatKey"
-	HeadingLevelKey = "$HeadingLevelKey"
+	RawInlineFormatKey = "$RawInlineFormatKey"
+	RawBlockFormatKey  = "$RawBlockLevelKey"
+	HeadingLevelKey    = "$HeadingLevelKey"
 
 	IdKey       = "id"
 	RoleKey     = "role"
@@ -28,9 +30,13 @@ const (
 	ParagraphNode
 	HeadingNode
 	QuoteNode
+	UnorderedListNode
+	OrderedListNode
+	DefinitionListNode
+	TaskListNode
 	ListItemNode
-	ListNode
 	CodeNode
+	RawNode
 	ThematicBreakNode
 	DivNode
 	PipeTableNode
@@ -52,6 +58,10 @@ const (
 	SpanNode
 )
 
+func (n DjotNode) IsList() bool {
+	return n == UnorderedListNode || n == OrderedListNode || n == TaskListNode || n == DefinitionListNode
+}
+
 func (n DjotNode) String() string {
 	switch n {
 	case DocumentNode:
@@ -66,10 +76,18 @@ func (n DjotNode) String() string {
 		return "QuoteNode"
 	case ListItemNode:
 		return "ListItemNode"
-	case ListNode:
-		return "ListNode"
+	case UnorderedListNode:
+		return "UnorderedListNode"
+	case OrderedListNode:
+		return "OrderedListNode"
+	case TaskListNode:
+		return "TaskListNode"
+	case DefinitionListNode:
+		return "DefinitionListNode"
 	case CodeNode:
 		return "CodeNode"
+	case RawNode:
+		return "RawNode"
 	case ThematicBreakNode:
 		return "ThematicBreakNode"
 	case DivNode:
@@ -261,17 +279,75 @@ func createSectionId(s string) string {
 	for _, c := range s {
 		if unicode.IsSpace(c) || c == '\n' || c == '\t' {
 			hasDash = true
-		} else if unicode.IsPunct(c) {
-			continue
-		} else {
+		} else if unicode.IsLetter(c) || unicode.IsDigit(c) {
 			if hasDash {
 				id.WriteString("-")
 			}
 			hasDash = false
 			id.WriteRune(c)
+		} else {
+			hasDash = true
 		}
 	}
 	return id.String()
+}
+
+type ListProps struct {
+	Type   DjotNode
+	Style  string
+	Marker string
+}
+
+func getPrefix(t []byte, mask tokenizer.ByteMask) []byte {
+	l := 0
+	for l < len(t) && mask.Has(t[l]) {
+		l++
+	}
+	return t[:l]
+}
+
+var (
+	UnorderedListByteMask = tokenizer.NewByteMask([]byte("-+*"))
+	DigitByteMask         = tokenizer.NewByteMask([]byte("0123456789"))
+	LowerAlphaByteMask    = tokenizer.NewByteMask([]byte("abcdefghijklmnopqrstuvwxyz"))
+	UpperAlphaByteMask    = tokenizer.NewByteMask([]byte("ABCDEFGHIJKLMNOPQRSTUVWXYZ"))
+)
+
+func detectListProps(document []byte, token tokenizer.Token[djot_tokenizer.DjotToken]) (ListProps, string) {
+	start, style := token.Start, ""
+	if document[start] == '(' {
+		start++
+		style += "("
+	}
+	end := start
+	for end < token.End && (DigitByteMask.Has(document[end]) || LowerAlphaByteMask.Has(document[end]) || UpperAlphaByteMask.Has(document[end])) {
+		end++
+	}
+	for end < token.End {
+		style += string(document[end])
+		end++
+	}
+
+	pivotByte := document[start]
+	if bytes.HasPrefix(document[token.Start:token.End], []byte("- [")) {
+		return ListProps{Type: TaskListNode}, ""
+	}
+	if UnorderedListByteMask.Has(pivotByte) {
+		return ListProps{Type: UnorderedListNode, Style: style}, ""
+	}
+	if pivotByte == ':' {
+		return ListProps{Type: DefinitionListNode}, ""
+	}
+	if DigitByteMask.Has(pivotByte) {
+		return ListProps{Type: OrderedListNode, Marker: "1", Style: style}, string(getPrefix(document[start:], DigitByteMask))
+	}
+	if LowerAlphaByteMask.Has(pivotByte) {
+		return ListProps{Type: OrderedListNode, Marker: "a", Style: style}, strconv.Itoa(int(pivotByte - 'a' + 1))
+	}
+	if UpperAlphaByteMask.Has(pivotByte) {
+		return ListProps{Type: OrderedListNode, Marker: "A", Style: style}, strconv.Itoa(int(pivotByte - 'A' + 1))
+	}
+	panic(fmt.Errorf("unexpected list token: %v", string(document[token.Start:token.End])))
 }
 
 func buildDjotAst(
@@ -283,34 +359,70 @@ func buildDjotAst(
 	if len(list) == 0 {
 		return nil
 	}
-	sectionPop := make(map[int]int)
+
+	groupElementsPop := make(map[int]int)
+	groupElementsInsert := make(map[int]TreeNode[DjotNode])
 	{
-		sectionStart, sectionLevel := make([]int, 0), make([]int, 0)
+		groupElements := make([]TreeNode[DjotNode], 0)
+		activeList := ListProps{}
 		i := 0
 		for i < len(list) {
 			openToken := list[i]
 			switch openToken.Type {
 			case djot_tokenizer.HeadingBlock:
-				level := len(bytes.TrimSuffix(document[openToken.Start:openToken.End], []byte(" ")))
+				level := string(bytes.TrimSuffix(document[openToken.Start:openToken.End], []byte(" ")))
 				pop := 0
-				for len(sectionLevel) > 0 && sectionLevel[len(sectionLevel)-1] >= level {
-					sectionStart = sectionStart[:len(sectionStart)-1]
-					sectionLevel = sectionLevel[:len(sectionLevel)-1]
+				for {
+					if len(groupElements) == 0 {
+						break
+					}
+					last := groupElements[len(groupElements)-1]
+					if last.Type == HeadingNode && len(last.Attributes.Get(HeadingLevelKey)) < len(level) {
+						break
+					}
+					groupElements = groupElements[:len(groupElements)-1]
 					pop++
 				}
-				sectionPop[i] = pop
+				groupElementsPop[i] = pop
+				sectionNode := TreeNode[DjotNode]{Type: SectionNode, Attributes: (&tokenizer.Attributes{}).Set(
+					"id", createSectionId(string(selectText(document, list[i+1:i+openToken.JumpToPair]))),
+				)}
+				groupElementsInsert[i] = sectionNode
+				groupElements = append(groupElements, sectionNode)
+			case djot_tokenizer.ListItemBlock:
+				currentList, currentStart := detectListProps(document, openToken)
+				if len(groupElements) > 0 && (groupElements[len(groupElements)-1].Type != currentList.Type || activeList != currentList) {
+					groupElementsPop[i] = 1
+					groupElements = groupElements[:len(groupElements)-1]
+				}
+				activeList = currentList
+				if len(groupElements) == 0 || !groupElements[len(groupElements)-1].Type.IsList() {
+					attributes := &tokenizer.Attributes{}
+					if currentStart != "1" && currentStart != "" {
+						attributes.Set("start", currentStart)
+					}
+					if currentList.Marker != "1" && currentList.Marker != "" {
+						attributes.Set("type", currentList.Marker)
+					}
+					listNode := TreeNode[DjotNode]{
+						Type:       currentList.Type,
+						Attributes: attributes,
+					}
+					groupElementsInsert[i] = listNode
+					groupElements = append(groupElements, listNode)
+				}
+			default:
+				if len(groupElements) > 0 && groupElements[len(groupElements)-1].Type.IsList() {
+					groupElementsPop[i] = 1
+					groupElements = groupElements[:len(groupElements)-1]
+				}
 			}
 			i += openToken.JumpToPair + 1
-		}
-		for len(sectionLevel) > 0 {
-			sectionPop[sectionStart[len(sectionStart)-1]] = len(list)
-			sectionStart = sectionStart[:len(sectionStart)-1]
-			sectionLevel = sectionLevel[:len(sectionLevel)-1]
 		}
 	}
 
 	nodes := make([]TreeNode[DjotNode], 0)
-	sections := []*[]TreeNode[DjotNode]{&nodes}
+	groups := []*[]TreeNode[DjotNode]{&nodes}
 	nodesRef := &nodes
 	{
 		i := 0
@@ -324,13 +436,21 @@ func buildDjotAst(
 				attributes.MergeWith(list[nextI].Attributes)
 				nextI++
 			}
+			if groupElementsPop[i] > 0 {
+				groups = groups[:len(groups)-groupElementsPop[i]]
+				nodesRef = groups[len(groups)-1]
+			}
+			if insert, ok := groupElementsInsert[i]; ok {
+				*nodesRef = append(*nodesRef, insert)
+				nodesRef = &(*nodesRef)[len(*nodesRef)-1].Children
+				groups = append(groups, nodesRef)
+			}
+
 			switch openToken.Type {
 			case
 				djot_tokenizer.DocumentBlock,
 				djot_tokenizer.QuoteBlock,
-				djot_tokenizer.CodeBlock,
 				djot_tokenizer.DivBlock,
-				djot_tokenizer.ThematicBreakToken,
 				djot_tokenizer.ParagraphBlock,
 				djot_tokenizer.EmphasisInline,
 				djot_tokenizer.StrongInline,
@@ -347,23 +467,39 @@ func buildDjotAst(
 						trimPadding(document, list[i+1:i+openToken.JumpToPair]),
 						textNode ||
 							openToken.Type == djot_tokenizer.ParagraphBlock ||
-							openToken.Type == djot_tokenizer.HeadingBlock ||
-							openToken.Type == djot_tokenizer.CodeBlock,
+							openToken.Type == djot_tokenizer.HeadingBlock,
 					),
 					Attributes: attributes,
 				})
+			case djot_tokenizer.CodeBlock:
+				lang := openToken.Attributes.Get(djot_tokenizer.CodeLangKey)
+				internal := buildDjotAst(
+					document,
+					context,
+					trimPadding(document, list[i+1:i+openToken.JumpToPair]),
+					true,
+				)
+				if suffix, ok := strings.CutPrefix(lang, "="); ok {
+					*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
+						Type:       RawNode,
+						Children:   internal,
+						Attributes: attributes.Set(RawBlockFormatKey, suffix),
+					})
+				} else {
+					*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
+						Type:       CodeNode,
+						Children:   internal,
+						Attributes: attributes,
+					})
+				}
+			case djot_tokenizer.ThematicBreakToken:
+				*nodesRef = append(*nodesRef, TreeNode[DjotNode]{Type: ThematicBreakNode, Attributes: attributes})
 			case djot_tokenizer.HeadingBlock:
 				if openToken.Type == djot_tokenizer.HeadingBlock {
-					attributes.Set(HeadingLevelKey, string(bytes.TrimSuffix(document[openToken.Start:openToken.End], []byte(" "))))
+					attributes.Set(
+						HeadingLevelKey, string(bytes.TrimSuffix(document[openToken.Start:openToken.End], []byte(" "))),
+					)
 				}
-				sections = sections[:len(sections)-sectionPop[i]]
-				nodesRef = sections[len(sections)-1]
-				*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
-					Type:       SectionNode,
-					Attributes: (&tokenizer.Attributes{}).Set("id", createSectionId(string(selectText(document, list[i+1:i+openToken.JumpToPair])))),
-				})
-				nodesRef = &(*nodesRef)[len(*nodesRef)-1].Children
-				sections = append(sections, nodesRef)
 				*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
 					Type: convertTokenToNode(openToken.Type),
 					Children: buildDjotAst(
@@ -402,7 +538,7 @@ func buildDjotAst(
 				if nextI < len(list) && list[nextI].Type == djot_tokenizer.RawFormatInline {
 					rawFormatOpen := list[nextI]
 					rawFormatClose := list[nextI+rawFormatOpen.JumpToPair]
-					attributes.Set(RawFormatKey, string(document[rawFormatOpen.End:rawFormatClose.Start]))
+					attributes.Set(RawInlineFormatKey, string(document[rawFormatOpen.End:rawFormatClose.Start]))
 					nextI += rawFormatOpen.JumpToPair + 1
 				}
 				*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
@@ -537,6 +673,23 @@ func buildDjotAst(
 						}
 					}
 					*nodesRef = append(*nodesRef, TreeNode[DjotNode]{Type: TextNode, Text: textBytes})
+				}
+			case djot_tokenizer.ListItemBlock:
+				next := list[i+1]
+				if next.Type == djot_tokenizer.ParagraphBlock && next.JumpToPair+2 == openToken.JumpToPair && bytes.Count(document[openToken.End:closeToken.Start], []byte("\n")) <= 1 {
+					children := buildDjotAst(document, context, list[i+2:i+openToken.JumpToPair-1], true)
+					if document[list[i+openToken.JumpToPair-2].Start] != '\n' {
+						children = append(children, TreeNode[DjotNode]{Type: TextNode, Text: []byte("\n")})
+					}
+					*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
+						Type:     ListItemNode,
+						Children: children,
+					})
+				} else {
+					*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
+						Type:     ListItemNode,
+						Children: buildDjotAst(document, context, list[i+1:i+openToken.JumpToPair], textNode),
+					})
 				}
 			case djot_tokenizer.None:
 				if textNode {

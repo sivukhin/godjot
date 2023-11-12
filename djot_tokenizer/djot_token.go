@@ -5,7 +5,7 @@ import "fmt"
 type DjotToken int
 
 const (
-	DivClassKey    = "DivClassKey"
+	DivClassKey    = "class"
 	CodeLangKey    = "CodeLangKey"
 	InlineMathKey  = "InlineMathKey"
 	DisplayMathKey = "DisplayMathKey"

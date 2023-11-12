@@ -32,6 +32,9 @@ func (a *Attributes) TryGet(key string) (string, bool) {
 }
 
 func (a *Attributes) Get(key string) string {
+	if a == nil {
+		return ""
+	}
 	return a.Map[key]
 }
 

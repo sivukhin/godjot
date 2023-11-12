@@ -2,6 +2,7 @@ package djot_tokenizer
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/sivukhin/godjot/tokenizer"
 	"strings"
 )
@@ -219,6 +220,13 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 			}
 		}
 
+		lastDivAt := -1
+		for i := 0; i < len(blockTokens); i++ {
+			blockToken := blockTokens[i]
+			if blockToken.Type == DivBlock {
+				lastDivAt = i
+			}
+		}
 		// Skip optional padding for Heading & Quotes (#, > padding) and remember last matched block token
 		resetBlockAt, potentialReset := 0, false
 		for i := 0; i < len(blockTokens); i++ {
@@ -237,6 +245,8 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 					break
 				}
 				state = next
+				resetBlockAt = i
+			} else if blockToken.Type != ParagraphBlock && blockToken.Type != HeadingBlock {
 				resetBlockAt = i
 			}
 		}
@@ -259,10 +269,10 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 		}
 
 		// Check if we can close DivBlock
-		if lastBlockType == DivBlock {
+		if lastDivAt != -1 {
 			token, next := MatchBlockToken(reader, state, DivBlock)
 			if next.Matched() && lastBlock.Length() <= token.Length() && token.Attributes.Size() == 0 {
-				closeBlockLevelsUntil(token.Start, token.End, len(blockTokens)-2)
+				closeBlockLevelsUntil(token.Start, token.End, lastDivAt-1)
 				continue
 			}
 		}
@@ -280,6 +290,7 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 					Start: thematicBreak.Start,
 					End:   thematicBreak.End,
 				})
+				state = next
 				continue blockParsingLoop
 			}
 
@@ -296,6 +307,7 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 			// Heading & CodeBlock can't have nested block level content
 			// Paragraph too - but there are subtle rules for list item handling, so we can't break for paragraphs here
 			if listItem, next := MatchBlockToken(reader, state, ListItemBlock); next.Matched() && lastBlockType != HeadingBlock && lastBlockType != CodeBlock {
+				fmt.Printf("listItem: %v, next: %v, %v\n", listItem, next, string(document[state:next]))
 				if resetListPosition != -1 {
 					closeBlockLevelsUntil(int(state), int(state), resetListPosition-1)
 				}

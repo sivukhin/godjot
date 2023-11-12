@@ -10,6 +10,33 @@ import (
 func ConvertDjotToHtml(builder *html_writer.HtmlWriter, format string, trees ...TreeNode[DjotNode]) {
 	for _, tree := range trees {
 		switch tree.Type {
+		case ThematicBreakNode:
+			builder.Tag("hr")
+			builder.WriteString("\n")
+		case DivNode:
+			builder.InTag("div", tree.Attributes.Entries()...)(func() {
+				builder.WriteString("\n")
+				ConvertDjotToHtml(builder, format, tree.Children...)
+			})
+			builder.WriteString("\n")
+		case UnorderedListNode:
+			builder.InTag("ul", tree.Attributes.Entries()...)(func() {
+				builder.WriteString("\n")
+				ConvertDjotToHtml(builder, format, tree.Children...)
+			})
+			builder.WriteString("\n")
+		case OrderedListNode:
+			builder.InTag("ol", tree.Attributes.Entries()...)(func() {
+				builder.WriteString("\n")
+				ConvertDjotToHtml(builder, format, tree.Children...)
+			})
+			builder.WriteString("\n")
+		case ListItemNode:
+			builder.InTag("li", tree.Attributes.Entries()...)(func() {
+				builder.WriteString("\n")
+				ConvertDjotToHtml(builder, format, tree.Children...)
+			})
+			builder.WriteString("\n")
 		case SectionNode:
 			builder.InTag("section", tree.Attributes.Entries()...)(func() {
 				builder.WriteString("\n")
@@ -60,6 +87,10 @@ func ConvertDjotToHtml(builder *html_writer.HtmlWriter, format string, trees ...
 				})
 			})
 			builder.WriteString("\n")
+		case RawNode:
+			if format == tree.Attributes.Get(RawBlockFormatKey) {
+				ConvertDjotToHtml(builder, format, tree.Children...)
+			}
 		case DocumentNode:
 			ConvertDjotToHtml(builder, format, tree.Children...)
 		case ImageNode:
@@ -79,7 +110,7 @@ func ConvertDjotToHtml(builder *html_writer.HtmlWriter, format string, trees ...
 					builder.WriteBytes(tree.Text)
 					builder.WriteString("\\]")
 				})
-			} else if rawFormat := tree.Attributes.Get(RawFormatKey); rawFormat == format {
+			} else if rawFormat := tree.Attributes.Get(RawInlineFormatKey); rawFormat == format {
 				builder.WriteBytes(tree.Text)
 			} else {
 				builder.InTag("code")(func() { builder.WriteBytes(tree.Text) })

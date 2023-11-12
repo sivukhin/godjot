@@ -27,3 +27,13 @@ func (t Token[T]) PrefixLength(document []byte, b byte) int {
 }
 
 type Range struct{ Start, End int }
+
+type Ranges []Range
+
+func (rs *Ranges) Push(r Range) {
+	if len(*rs) == 0 || (*rs)[len(*rs)-1].End != r.Start {
+		*rs = append(*rs, r)
+	} else {
+		(*rs)[len(*rs)-1].End = r.End
+	}
+}

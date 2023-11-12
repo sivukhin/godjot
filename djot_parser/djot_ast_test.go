@@ -18,9 +18,10 @@ import (
 func printDjot(text string) string {
 	document := []byte(text)
 	tokens := djot_tokenizer.BuildDjotTokens(document)
-	fmt.Printf("tokens: %v\n", tokens)
+	fmt.Printf("list: %v\n", tokens)
 	context := BuildDjotContext(document, tokens)
 	ast := buildDjotAst(document, context, tokens, false)
+	fmt.Printf("ast: %v\n", ast)
 	builder := html_writer.HtmlWriter{}
 	ConvertDjotToHtml(&builder, "html", ast...)
 	return builder.String()
@@ -82,7 +83,7 @@ func TestDjotDocExample(t *testing.T) {
 		require.Nil(t, err)
 		djotExample, err := os.ReadFile(path.Join(examplesDir, fmt.Sprintf("%v.djot", example)))
 		require.Nil(t, err)
-		t.Run(string(djotExample), func(t *testing.T) {
+		t.Run(example+":"+string(djotExample), func(t *testing.T) {
 			result := printDjot(string(djotExample))
 			require.Equalf(
 				t, string(htmlExample), result,

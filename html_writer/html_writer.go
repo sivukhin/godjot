@@ -32,21 +32,24 @@ func (w *HtmlWriter) InTag(tag string, attributes ...tokenizer.AttributeEntry) f
 		sort.Slice(attributes, func(i, j int) bool {
 			iStart := attributes[i].Key
 			jStart := attributes[j].Key
-			if iStart == "id" && jStart != "id" {
-				return true
-			}
-			if iStart != "id" && jStart == "id" {
-				return false
-			}
 			if iStart == "class" && jStart != "class" {
 				return true
 			}
 			if iStart != "class" && jStart == "class" {
 				return false
 			}
+			if iStart == "id" && jStart != "id" {
+				return true
+			}
+			if iStart != "id" && jStart == "id" {
+				return false
+			}
 			return i < j
 		})
 		for _, attribute := range attributes {
+			if strings.HasPrefix(attribute.Key, "$") {
+				continue
+			}
 			w.Builder.WriteString(" ")
 			w.Builder.WriteString(attribute.Key)
 			w.Builder.WriteString("=\"")

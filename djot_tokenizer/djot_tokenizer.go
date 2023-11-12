@@ -16,9 +16,14 @@ func BuildInlineDjotTokens(
 
 	tokenStack := tokenizer.NewTokenStack[DjotToken]()
 	leftDocumentPosition, rightDocumentPosition := parts[0].Start, parts[len(parts)-1].End
-	tokenStack.OpenLevelAt(tokenizer.Token[DjotToken]{Type: ParagraphBlock, Start: leftDocumentPosition, End: leftDocumentPosition})
+	tokenStack.OpenLevelAt(tokenizer.Token[DjotToken]{
+		Type:  ParagraphBlock,
+		Start: leftDocumentPosition,
+		End:   leftDocumentPosition,
+	})
 	for _, part := range parts {
 		reader, state := tokenizer.TextReader(document[:part.End]), tokenizer.ReaderState(part.Start)
+		tokenStack.LastLevel().FillUntil(part.Start, Ignore)
 
 	inlineParsingLoop:
 		for !reader.Empty(state) {
@@ -144,7 +149,7 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 	var (
 		lineTokenizer = tokenizer.LineTokenizer{Document: document}
 
-		inlineParts = make([]tokenizer.Range, 0)
+		inlineParts = tokenizer.Ranges{}
 
 		blockLineOffset  = []int{0}
 		blockTokenOffset = []int{0}
@@ -164,7 +169,12 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 		blockTokens = append(blockTokens, token)
 	}
 	closeBlockLevelsUntil := func(start, end, level int) {
-		if len(inlineParts) != 0 {
+		if len(inlineParts) != 0 && blockTokens[len(blockTokens)-1].Type == CodeBlock {
+			for _, inlinePart := range inlineParts {
+				finalTokens = append(finalTokens, tokenizer.Token[DjotToken]{Start: inlinePart.Start, End: inlinePart.End})
+			}
+			inlineParts = nil
+		} else if len(inlineParts) != 0 {
 			finalTokens = append(finalTokens, BuildInlineDjotTokens(document, inlineParts...)...)
 			inlineParts = nil
 		}
@@ -242,6 +252,8 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 			token, next := MatchBlockToken(reader, state, CodeBlock)
 			if next.Matched() && lastBlock.PrefixLength(document, '`') <= token.PrefixLength(document, '`') && token.Attributes.Size() == 0 {
 				closeBlockLevelsUntil(token.Start, token.End, len(blockTokens)-2)
+			} else {
+				inlineParts = append(inlineParts, tokenizer.Range{Start: int(state), End: lineEnd})
 			}
 			continue
 		}
@@ -297,9 +309,10 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 			}
 
 			if lastBlockType == ParagraphBlock || lastBlockType == HeadingBlock {
-				inlineParts = append(inlineParts, tokenizer.Range{Start: int(state), End: lineEnd})
+				inlineParts.Push(tokenizer.Range{Start: int(state), End: lineEnd})
 				break blockParsingLoop
 			}
+
 			if lastBlockType == CodeBlock {
 				break blockParsingLoop
 			}
@@ -317,8 +330,8 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 				CodeBlock,
 				DivBlock,
 				PipeTableBlock,
-				ReferenceDefBlock,
 				FootnoteDefBlock,
+				ReferenceDefBlock,
 				ParagraphBlock,
 			} {
 				block, next := MatchBlockToken(reader, state, tokenType)

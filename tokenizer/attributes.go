@@ -45,9 +45,23 @@ func (a *Attributes) MergeWith(other *Attributes) *Attributes {
 }
 
 func (a *Attributes) Entries() []AttributeEntry {
+	if a == nil {
+		return nil
+	}
 	entries := make([]AttributeEntry, 0, len(a.Map))
 	for _, key := range a.Keys {
 		entries = append(entries, AttributeEntry{Key: key, Value: a.Get(key)})
+	}
+	return entries
+}
+
+func (a *Attributes) GoMap() map[string]string {
+	if a == nil {
+		return nil
+	}
+	entries := make(map[string]string)
+	for _, key := range a.Keys {
+		entries[key] = a.Get(key)
 	}
 	return entries
 }

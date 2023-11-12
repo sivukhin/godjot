@@ -1,21 +1,29 @@
 package djot_parser
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/sivukhin/godjot/djot_tokenizer"
 	"github.com/sivukhin/godjot/html_writer"
 	"github.com/sivukhin/godjot/tokenizer"
 )
 
-func ConvertDjotToHtml(builder *html_writer.HtmlWriter, format string, trees ...Tree[DjotNode]) {
+func ConvertDjotToHtml(builder *html_writer.HtmlWriter, format string, trees ...TreeNode[DjotNode]) {
 	for _, tree := range trees {
 		switch tree.Type {
+		case SectionNode:
+			builder.InTag("section", tree.Attributes.Entries()...)(func() {
+				builder.WriteString("\n")
+				ConvertDjotToHtml(builder, format, tree.Children...)
+			})
+			builder.WriteString("\n")
 		case HeadingNode:
-			level := len(bytes.TrimSuffix(tree.Token, []byte(" ")))
-			builder.InTag(fmt.Sprintf("h%v", level))(func() { ConvertDjotToHtml(builder, format, tree.Children...) })
+			level := len(tree.Attributes.Get(HeadingLevelKey))
+			builder.InTag(fmt.Sprintf("h%v", level), tree.Attributes.Entries()...)(func() {
+				ConvertDjotToHtml(builder, format, tree.Children...)
+			})
+			builder.WriteString("\n")
 		case InsertNode:
-			builder.InTag("ins")(func() { ConvertDjotToHtml(builder, format, tree.Children...) })
+			builder.InTag("ins", tree.Attributes.Entries()...)(func() { ConvertDjotToHtml(builder, format, tree.Children...) })
 		case SymbolsNode:
 			symbol := string(tree.Text)
 			switch symbol {
@@ -33,7 +41,7 @@ func ConvertDjotToHtml(builder *html_writer.HtmlWriter, format string, trees ...
 		case HighlightedNode:
 			builder.InTag("mark")(func() { ConvertDjotToHtml(builder, format, tree.Children...) })
 		case EmphasisNode:
-			builder.InTag("em")(func() { ConvertDjotToHtml(builder, format, tree.Children...) })
+			builder.InTag("em", tree.Attributes.Entries()...)(func() { ConvertDjotToHtml(builder, format, tree.Children...) })
 		case StrongNode:
 			builder.InTag("strong")(func() { ConvertDjotToHtml(builder, format, tree.Children...) })
 		case ParagraphNode:
@@ -55,21 +63,9 @@ func ConvertDjotToHtml(builder *html_writer.HtmlWriter, format string, trees ...
 		case DocumentNode:
 			ConvertDjotToHtml(builder, format, tree.Children...)
 		case ImageNode:
-			attributes := tree.Attributes.Entries()
-			if bytes.Contains(tree.Text, []byte("@")) {
-				attributes = append(attributes, tokenizer.AttributeEntry{Key: "src", Value: "mailto:" + string(tree.Text)})
-			} else if len(tree.Text) > 0 {
-				attributes = append(attributes, tokenizer.AttributeEntry{Key: "src", Value: string(tree.Text)})
-			}
-			builder.Tag("img", attributes...)
+			builder.Tag("img", tree.Attributes.Entries()...)
 		case LinkNode:
-			var attributes []tokenizer.AttributeEntry
-			if bytes.Contains(tree.Text, []byte("@")) {
-				attributes = append(attributes, tokenizer.AttributeEntry{Key: "href", Value: "mailto:" + string(tree.Text)})
-			} else if len(tree.Text) > 0 {
-				attributes = append(attributes, tokenizer.AttributeEntry{Key: "href", Value: string(tree.Text)})
-			}
-			builder.InTag("a", attributes...)(func() { ConvertDjotToHtml(builder, format, tree.Children...) })
+			builder.InTag("a", tree.Attributes.Entries()...)(func() { ConvertDjotToHtml(builder, format, tree.Children...) })
 		case VerbatimNode:
 			if _, ok := tree.Attributes.TryGet(djot_tokenizer.InlineMathKey); ok {
 				builder.InTag("span", tokenizer.AttributeEntry{Key: "class", Value: "math inline"})(func() {

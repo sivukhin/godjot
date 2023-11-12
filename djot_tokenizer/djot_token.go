@@ -13,7 +13,8 @@ const (
 
 const (
 	None          = 0
-	DocumentBlock = 2*iota + 1
+	Ignore        = 1
+	DocumentBlock = 2*(iota-1) + 1
 	HeadingBlock
 	QuoteBlock
 	ListItemBlock
@@ -49,15 +50,11 @@ const (
 )
 
 func (t DjotToken) String() string {
-	if t == None {
-		return "None"
-	}
-	if t&1 == 0 {
-		return (t ^ 1).String() + "Close"
-	}
 	switch t {
 	case None:
 		return "None"
+	case Ignore:
+		return "Ignore"
 	case DocumentBlock:
 		return "DocumentBlock"
 	case HeadingBlock:
@@ -120,7 +117,9 @@ func (t DjotToken) String() string {
 		return "RawFormatInline"
 	case SmartSymbolInline:
 		return "SmartSymbolInline"
-	default:
-		panic(fmt.Errorf("unexpected djot token type: %d", t))
 	}
+	if t&1 == 0 {
+		return (t ^ 1).String() + "Close"
+	}
+	panic(fmt.Errorf("unexpected djot token type: %d", t))
 }

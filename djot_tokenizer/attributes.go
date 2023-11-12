@@ -42,7 +42,7 @@ func MatchDjotAttribute(r tokenizer.TextReader, s tokenizer.ReaderState) (attrib
 	}
 	comment := false
 	for {
-		next = r.MaskRepeat(next, tokenizer.SpaceByteMask, 0)
+		next = r.MaskRepeat(next, tokenizer.SpaceNewLineByteMask, 0)
 		if r.Empty(next) {
 			next = tokenizer.Unmatched
 			return

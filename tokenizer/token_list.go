@@ -17,9 +17,17 @@ func (l *TokenList[T]) LastOrDefault() *Token[T] {
 }
 
 func (l *TokenList[T]) Push(token Token[T]) {
-	last := l.LastOrDefault()
-	if len(*l) > 0 && last.End < token.Start {
-		*l = append(*l, Token[T]{Start: last.End, End: token.Start})
-	}
+	l.FillUntil(token.Start)
 	*l = append(*l, token)
+}
+
+func (l *TokenList[T]) FillUntil(position int, tokenTypeOpt ...T) {
+	var tokenType T
+	if len(tokenTypeOpt) > 0 {
+		tokenType = tokenTypeOpt[0]
+	}
+	last := l.LastOrDefault()
+	if len(*l) > 0 && last.End < position {
+		*l = append(*l, Token[T]{Type: tokenType, Start: last.End, End: position})
+	}
 }

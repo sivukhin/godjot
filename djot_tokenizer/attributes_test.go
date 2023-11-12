@@ -41,7 +41,9 @@ func TestAttributes(t *testing.T) {
 			s     string
 			value map[string]string
 		}{
+			{s: `{% This is a comment, spanning\nmultiple lines %}`, value: map[string]string{}},
 			{s: `{.some-class}`, value: map[string]string{DjotAttributeClassKey: "some-class"}},
+			{s: `{.some-class % comment \n with \n newlines %}`, value: map[string]string{DjotAttributeClassKey: "some-class"}},
 			{s: `{.a % comment % .b}`, value: map[string]string{DjotAttributeClassKey: "a b"}},
 			{s: `{#some-id}`, value: map[string]string{DjotAttributeIdKey: "some-id"}},
 			{s: `{some-key=some-value}`, value: map[string]string{"some-key": "some-value"}},
@@ -51,7 +53,7 @@ func TestAttributes(t *testing.T) {
 				reader := tokenizer.TextReader(tt.s)
 				value, next := MatchDjotAttribute(reader, 0)
 				require.Equal(t, len(tt.s), int(next))
-				require.Equal(t, tt.value, value)
+				require.Equal(t, tt.value, value.GoMap())
 			})
 		}
 	})

@@ -2,7 +2,6 @@ package djot_tokenizer
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/sivukhin/godjot/tokenizer"
 	"strings"
 )
@@ -307,7 +306,6 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 			// Heading & CodeBlock can't have nested block level content
 			// Paragraph too - but there are subtle rules for list item handling, so we can't break for paragraphs here
 			if listItem, next := MatchBlockToken(reader, state, ListItemBlock); next.Matched() && lastBlockType != HeadingBlock && lastBlockType != CodeBlock {
-				fmt.Printf("listItem: %v, next: %v, %v\n", listItem, next, string(document[state:next]))
 				if resetListPosition != -1 {
 					closeBlockLevelsUntil(int(state), int(state), resetListPosition-1)
 				}

@@ -18,7 +18,6 @@ import (
 func printDjot(text string) string {
 	document := []byte(text)
 	ast := BuildDjotAst(document)
-	fmt.Printf("ast: %v\n", ast)
 	builder := html_writer.HtmlWriter{}
 	ConvertDjotToHtml(&builder, "html", ast...)
 	return builder.String()
@@ -90,4 +89,11 @@ func TestDjotDocExample(t *testing.T) {
 			)
 		})
 	}
+}
+
+func TestManualExamples(t *testing.T) {
+	t.Run("link in text", func(t *testing.T) {
+		result := printDjot("link http://localhost:3000/debug/pprof/profile?seconds=10 -o profile.pprof")
+		require.Equal(t, "<p>link http://localhost:3000/debug/pprof/profile?seconds=10 -o profile.pprof</p>\n", result)
+	})
 }

@@ -7,9 +7,10 @@ import (
 )
 
 var (
-	DollarByteMask      = tokenizer.NewByteMask([]byte("$"))
-	BacktickByteMask    = tokenizer.NewByteMask([]byte("`"))
-	SmartSymbolByteMask = tokenizer.NewByteMask([]byte("\n'\""))
+	DollarByteMask             = tokenizer.NewByteMask([]byte("$"))
+	BacktickByteMask           = tokenizer.NewByteMask([]byte("`"))
+	SmartSymbolByteMask        = tokenizer.NewByteMask([]byte("\n'\""))
+	AlphaNumericSymbolByteMask = tokenizer.NewByteMask([]byte("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"))
 )
 
 func MatchInlineToken(
@@ -141,7 +142,15 @@ func MatchInlineToken(
 		next = r.Token(s, "{=")
 	case RawFormatInline ^ tokenizer.Open:
 		next = r.Token(s, "}")
-	case SymbolsInline, SymbolsInline ^ tokenizer.Open:
+	case SymbolsInline:
+		next = r.Token(s, ":")
+		if !next.Matched() {
+			break
+		}
+		if word := r.MaskRepeat(next, AlphaNumericSymbolByteMask, 0); !word.Matched() || !r.Token(word, ":").Matched() {
+			next = tokenizer.Unmatched
+		}
+	case SymbolsInline ^ tokenizer.Open:
 		next = r.Token(s, ":")
 	case SmartSymbolInline:
 		if !next.Matched() {

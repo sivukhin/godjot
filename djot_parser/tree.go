@@ -15,3 +15,13 @@ func (n TreeNode[T]) Traverse(f func(node TreeNode[T])) {
 		child.Traverse(f)
 	}
 }
+
+func (n TreeNode[T]) FullText() []byte {
+	var text []byte
+	n.Traverse(func(node TreeNode[T]) {
+		if len(node.Text) > 0 {
+			text = append(text, node.Text...)
+		}
+	})
+	return text
+}

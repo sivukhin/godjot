@@ -1,9 +1,11 @@
 package djot_tokenizer
 
 import (
-	"github.com/sivukhin/godjot/tokenizer"
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/sivukhin/godjot/tokenizer"
 )
 
 func TestSimpleText(t *testing.T) {

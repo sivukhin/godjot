@@ -2,8 +2,9 @@ package djot_tokenizer
 
 import (
 	"bytes"
-	"github.com/sivukhin/godjot/tokenizer"
 	"strings"
+
+	"github.com/sivukhin/godjot/tokenizer"
 )
 
 func BuildInlineDjotTokens(
@@ -231,8 +232,8 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 		for i := 0; i < len(blockTokens); i++ {
 			blockToken := blockTokens[i]
 			if blockToken.Type == ListItemBlock {
-				state = reader.MaskRepeat(state, tokenizer.SpaceByteMask, 0)
-				if !reader.EmptyOrWhiteSpace(state).Matched() && int(state)-lineStart <= blockLineOffset[i] {
+				next := reader.MaskRepeat(state, tokenizer.SpaceByteMask, 0)
+				if !reader.EmptyOrWhiteSpace(next).Matched() && int(next)-lineStart <= blockLineOffset[i] {
 					potentialReset = true
 					break
 				}

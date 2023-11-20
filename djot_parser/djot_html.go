@@ -2,128 +2,139 @@ package djot_parser
 
 import (
 	"fmt"
+
 	"github.com/sivukhin/godjot/djot_tokenizer"
 	"github.com/sivukhin/godjot/html_writer"
 	"github.com/sivukhin/godjot/tokenizer"
 )
 
-func ConvertDjotToHtml(builder *html_writer.HtmlWriter, format string, trees ...TreeNode[DjotNode]) {
-	for _, tree := range trees {
-		switch tree.Type {
-		case ThematicBreakNode:
-			builder.Tag("hr")
-			builder.WriteString("\n")
-		case DivNode:
-			builder.InTag("div", tree.Attributes.Entries()...)(func() {
-				builder.WriteString("\n")
-				ConvertDjotToHtml(builder, format, tree.Children...)
+type (
+	ConversionContext struct {
+		Format   string
+		Registry ConversionRegistry
+	}
+	ConversionState struct {
+		Format string
+		Writer *html_writer.HtmlWriter
+		Node   TreeNode[DjotNode]
+	}
+	Conversion         func(state ConversionState, next func())
+	ConversionRegistry map[DjotNode]Conversion
+)
+
+func (state ConversionState) StandaloneNodeConverter(tag string) *html_writer.HtmlWriter {
+	return state.Writer.OpenTag(tag, state.Node.Attributes.Entries()...)
+}
+
+func (state ConversionState) InlineNodeConverter(tag string, next func()) *html_writer.HtmlWriter {
+	return state.Writer.InTag(tag, state.Node.Attributes.Entries()...)(next)
+}
+
+func (state ConversionState) BlockNodeConverter(tag string, next func()) *html_writer.HtmlWriter {
+	content := func() {
+		state.Writer.WriteString("\n")
+		next()
+	}
+	return state.Writer.InTag(tag, state.Node.Attributes.Entries()...)(content).WriteString("\n")
+}
+
+var DefaultSymbolRegistry = map[string]string{
+	"+1":     "👍",
+	"smiley": "😃",
+}
+
+var DefaultConversionRegistry = map[DjotNode]Conversion{
+	ThematicBreakNode: func(s ConversionState, n func()) { s.Writer.OpenTag("th").WriteString("\n") },
+	LineBreakNode:     func(s ConversionState, n func()) { s.Writer.OpenTag("br").WriteString("\n") },
+	TextNode:          func(s ConversionState, n func()) { s.Writer.WriteBytes(s.Node.Text) },
+	SymbolsNode:       func(s ConversionState, n func()) { s.Writer.WriteString(DefaultSymbolRegistry[string(s.Node.Text)]) },
+	InsertNode:        func(s ConversionState, n func()) { s.InlineNodeConverter("ins", n) },
+	DeleteNode:        func(s ConversionState, n func()) { s.InlineNodeConverter("del", n) },
+	SuperscriptNode:   func(s ConversionState, n func()) { s.InlineNodeConverter("sup", n) },
+	SubscriptNode:     func(s ConversionState, n func()) { s.InlineNodeConverter("sub", n) },
+	HighlightedNode:   func(s ConversionState, n func()) { s.InlineNodeConverter("mark", n) },
+	EmphasisNode:      func(s ConversionState, n func()) { s.InlineNodeConverter("em", n) },
+	StrongNode:        func(s ConversionState, n func()) { s.InlineNodeConverter("strong", n) },
+	ParagraphNode:     func(s ConversionState, n func()) { s.InlineNodeConverter("p", n).WriteString("\n") },
+	ImageNode:         func(s ConversionState, n func()) { s.StandaloneNodeConverter("img") },
+	LinkNode:          func(s ConversionState, n func()) { s.InlineNodeConverter("a", n) },
+	SpanNode:          func(s ConversionState, n func()) { s.InlineNodeConverter("span", n) },
+	DivNode:           func(s ConversionState, n func()) { s.BlockNodeConverter("div", n) },
+	UnorderedListNode: func(s ConversionState, n func()) { s.BlockNodeConverter("ul", n) },
+	OrderedListNode:   func(s ConversionState, n func()) { s.BlockNodeConverter("ol", n) },
+	ListItemNode:      func(s ConversionState, n func()) { s.BlockNodeConverter("li", n) },
+	SectionNode:       func(s ConversionState, n func()) { s.BlockNodeConverter("section", n) },
+	QuoteNode:         func(s ConversionState, n func()) { s.BlockNodeConverter("blockquote", n) },
+	DocumentNode:      func(s ConversionState, n func()) { n() },
+	CodeNode: func(s ConversionState, n func()) {
+		s.Writer.OpenTag("pre", s.Node.Attributes.Entries()...).OpenTag("code")
+		n()
+		s.Writer.CloseTag("code").CloseTag("pre").WriteString("\n")
+	},
+	VerbatimNode: func(s ConversionState, n func()) {
+		if _, ok := s.Node.Attributes.TryGet(djot_tokenizer.InlineMathKey); ok {
+			s.Writer.InTag("span", tokenizer.AttributeEntry{Key: "class", Value: "math inline"})(func() {
+				s.Writer.WriteString("\\(")
+				s.Writer.WriteBytes(s.Node.Text)
+				s.Writer.WriteString("\\)")
 			})
-			builder.WriteString("\n")
-		case UnorderedListNode:
-			builder.InTag("ul", tree.Attributes.Entries()...)(func() {
-				builder.WriteString("\n")
-				ConvertDjotToHtml(builder, format, tree.Children...)
+		} else if _, ok := s.Node.Attributes.TryGet(djot_tokenizer.DisplayMathKey); ok {
+			s.Writer.InTag("span", tokenizer.AttributeEntry{Key: "class", Value: "math display"})(func() {
+				s.Writer.WriteString("\\[")
+				s.Writer.WriteBytes(s.Node.Text)
+				s.Writer.WriteString("\\]")
 			})
-			builder.WriteString("\n")
-		case OrderedListNode:
-			builder.InTag("ol", tree.Attributes.Entries()...)(func() {
-				builder.WriteString("\n")
-				ConvertDjotToHtml(builder, format, tree.Children...)
-			})
-			builder.WriteString("\n")
-		case ListItemNode:
-			builder.InTag("li", tree.Attributes.Entries()...)(func() {
-				builder.WriteString("\n")
-				ConvertDjotToHtml(builder, format, tree.Children...)
-			})
-			builder.WriteString("\n")
-		case SectionNode:
-			builder.InTag("section", tree.Attributes.Entries()...)(func() {
-				builder.WriteString("\n")
-				ConvertDjotToHtml(builder, format, tree.Children...)
-			})
-			builder.WriteString("\n")
-		case HeadingNode:
-			level := len(tree.Attributes.Get(HeadingLevelKey))
-			builder.InTag(fmt.Sprintf("h%v", level), tree.Attributes.Entries()...)(func() {
-				ConvertDjotToHtml(builder, format, tree.Children...)
-			})
-			builder.WriteString("\n")
-		case InsertNode:
-			builder.InTag("ins", tree.Attributes.Entries()...)(func() { ConvertDjotToHtml(builder, format, tree.Children...) })
-		case SymbolsNode:
-			symbol := string(tree.Text)
-			switch symbol {
-			case "+1":
-				builder.WriteString("👍")
-			case "smiley":
-				builder.WriteString("😃")
-			}
-		case DeleteNode:
-			builder.InTag("del")(func() { ConvertDjotToHtml(builder, format, tree.Children...) })
-		case SuperscriptNode:
-			builder.InTag("sup")(func() { ConvertDjotToHtml(builder, format, tree.Children...) })
-		case SubscriptNode:
-			builder.InTag("sub")(func() { ConvertDjotToHtml(builder, format, tree.Children...) })
-		case HighlightedNode:
-			builder.InTag("mark")(func() { ConvertDjotToHtml(builder, format, tree.Children...) })
-		case EmphasisNode:
-			builder.InTag("em", tree.Attributes.Entries()...)(func() { ConvertDjotToHtml(builder, format, tree.Children...) })
-		case StrongNode:
-			builder.InTag("strong")(func() { ConvertDjotToHtml(builder, format, tree.Children...) })
-		case ParagraphNode:
-			builder.InTag("p", tree.Attributes.Entries()...)(func() { ConvertDjotToHtml(builder, format, tree.Children...) })
-			builder.WriteString("\n")
-		case QuoteNode:
-			builder.InTag("blockquote", tree.Attributes.Entries()...)(func() {
-				builder.WriteString("\n")
-				ConvertDjotToHtml(builder, format, tree.Children...)
-			})
-			builder.WriteString("\n")
-		case CodeNode:
-			builder.InTag("pre")(func() {
-				builder.InTag("code")(func() {
-					ConvertDjotToHtml(builder, format, tree.Children...)
-				})
-			})
-			builder.WriteString("\n")
-		case RawNode:
-			if format == tree.Attributes.Get(RawBlockFormatKey) {
-				ConvertDjotToHtml(builder, format, tree.Children...)
-			}
-		case DocumentNode:
-			ConvertDjotToHtml(builder, format, tree.Children...)
-		case ImageNode:
-			builder.Tag("img", tree.Attributes.Entries()...)
-		case LinkNode:
-			builder.InTag("a", tree.Attributes.Entries()...)(func() { ConvertDjotToHtml(builder, format, tree.Children...) })
-		case VerbatimNode:
-			if _, ok := tree.Attributes.TryGet(djot_tokenizer.InlineMathKey); ok {
-				builder.InTag("span", tokenizer.AttributeEntry{Key: "class", Value: "math inline"})(func() {
-					builder.WriteString("\\(")
-					builder.WriteBytes(tree.Text)
-					builder.WriteString("\\)")
-				})
-			} else if _, ok := tree.Attributes.TryGet(djot_tokenizer.DisplayMathKey); ok {
-				builder.InTag("span", tokenizer.AttributeEntry{Key: "class", Value: "math display"})(func() {
-					builder.WriteString("\\[")
-					builder.WriteBytes(tree.Text)
-					builder.WriteString("\\]")
-				})
-			} else if rawFormat := tree.Attributes.Get(RawInlineFormatKey); rawFormat == format {
-				builder.WriteBytes(tree.Text)
-			} else {
-				builder.InTag("code")(func() { builder.WriteBytes(tree.Text) })
-			}
-		case SpanNode:
-			builder.InTag("span", tree.Attributes.Entries()...)(func() {
-				ConvertDjotToHtml(builder, format, tree.Children...)
-			})
-		case LineBreakNode:
-			builder.Tag("br")
-			builder.WriteString("\n")
-		case TextNode:
-			builder.WriteBytes(tree.Text)
+		} else if rawFormat := s.Node.Attributes.Get(RawInlineFormatKey); rawFormat == s.Format {
+			s.Writer.WriteBytes(s.Node.Text)
+		} else {
+			s.Writer.InTag("code")(func() { s.Writer.WriteBytes(s.Node.Text) })
 		}
+	},
+	HeadingNode: func(s ConversionState, n func()) {
+		level := len(s.Node.Attributes.Get(HeadingLevelKey))
+		s.Writer.InTag(fmt.Sprintf("h%v", level), s.Node.Attributes.Entries()...)(func() { n() }).WriteString("\n")
+	},
+	RawNode: func(s ConversionState, next func()) {
+		if s.Format == s.Node.Attributes.Get(RawBlockFormatKey) {
+			next()
+		}
+	},
+}
+
+func NewConversionContext(format string, converters ...map[DjotNode]Conversion) ConversionContext {
+	if len(converters) == 0 {
+		converters = []map[DjotNode]Conversion{DefaultConversionRegistry}
+	}
+	registry := converters[0]
+	for i := 1; i < len(converters); i++ {
+		for node, conversion := range converters[i] {
+			registry[node] = conversion
+		}
+	}
+	return ConversionContext{
+		Format:   format,
+		Registry: registry,
+	}
+}
+
+func (context ConversionContext) ConvertDjotToHtml(nodes ...TreeNode[DjotNode]) string {
+	builder := html_writer.HtmlWriter{}
+	context.convertDjotToHtml(&builder, nodes...)
+	return builder.String()
+}
+
+func (context ConversionContext) convertDjotToHtml(builder *html_writer.HtmlWriter, nodes ...TreeNode[DjotNode]) {
+	for _, node := range nodes {
+		currentNode := node
+		conversion, ok := context.Registry[currentNode.Type]
+		if !ok {
+			continue
+		}
+		state := ConversionState{
+			Format: context.Format,
+			Writer: builder,
+			Node:   currentNode,
+		}
+		conversion(state, func() { context.convertDjotToHtml(builder, currentNode.Children...) })
 	}
 }

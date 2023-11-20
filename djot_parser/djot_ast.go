@@ -3,11 +3,12 @@ package djot_parser
 import (
 	"bytes"
 	"fmt"
-	"github.com/sivukhin/godjot/djot_tokenizer"
-	"github.com/sivukhin/godjot/tokenizer"
 	"strconv"
 	"strings"
 	"unicode"
+
+	"github.com/sivukhin/godjot/djot_tokenizer"
+	"github.com/sivukhin/godjot/tokenizer"
 )
 
 const (
@@ -122,6 +123,8 @@ func (n DjotNode) String() string {
 		return "LineBreakNode"
 	case LinkNode:
 		return "LinkNode"
+	case ImageNode:
+		return "ImageNode"
 	default:
 		panic(fmt.Errorf("unexpected djot node: %d", n))
 	}
@@ -452,7 +455,6 @@ func buildDjotAst(
 				for nextI < len(list) && list[nextI].Type == djot_tokenizer.Attribute {
 					attributes.MergeWith(list[nextI].Attributes)
 					nextI++
-
 				}
 			}
 			if groupElementsPop[i] > 0 {
@@ -581,6 +583,18 @@ func buildDjotAst(
 				if nextI < len(list) {
 					nextToken = list[nextI]
 				}
+				// todo (sivukhin, 2023-11-19): replicate this logic in regular link and make it less awful!
+				attributesAfter := 0
+				if nextToken.Type != djot_tokenizer.None {
+					for {
+						position := nextI + nextToken.JumpToPair + 1 + attributesAfter
+						if position >= len(list) || list[position].Type != djot_tokenizer.Attribute {
+							break
+						}
+						attributes.MergeWith(list[position].Attributes)
+						attributesAfter++
+					}
+				}
 				if nextToken.Type == djot_tokenizer.LinkUrlInline {
 					*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
 						Type: ImageNode,
@@ -614,6 +628,7 @@ func buildDjotAst(
 						Text: document[closeToken.Start:closeToken.End],
 					})
 				}
+				nextI += attributesAfter
 			case djot_tokenizer.SpanInline:
 				var nextToken tokenizer.Token[djot_tokenizer.DjotToken]
 				if nextI < len(list) {

@@ -3,9 +3,6 @@ package djot_parser
 import (
 	"bytes"
 	"fmt"
-	"github.com/sivukhin/godjot/djot_tokenizer"
-	"github.com/sivukhin/godjot/html_writer"
-	"github.com/stretchr/testify/require"
 	"html"
 	"io"
 	"net/http"
@@ -13,14 +10,17 @@ import (
 	"path"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/sivukhin/godjot/djot_tokenizer"
 )
 
 func printDjot(text string) string {
 	document := []byte(text)
 	ast := BuildDjotAst(document)
-	builder := html_writer.HtmlWriter{}
-	ConvertDjotToHtml(&builder, "html", ast...)
-	return builder.String()
+	fmt.Printf("ast: %v\n", ast)
+	return NewConversionContext("html", DefaultConversionRegistry).ConvertDjotToHtml(ast...)
 }
 
 const examplesDir = "examples"
@@ -96,12 +96,16 @@ func TestManualExamples(t *testing.T) {
 		result := printDjot("link http://localhost:3000/debug/pprof/profile?seconds=10 -o profile.pprof")
 		require.Equal(t, "<p>link http://localhost:3000/debug/pprof/profile?seconds=10 -o profile.pprof</p>\n", result)
 	})
-	t.Run("attributes", func(t *testing.T) {
+	t.Run("block attributes", func(t *testing.T) {
 		result := printDjot(`{key="value"}
 # Header`)
 		require.Equal(t, `<section id="Header">
 <h1 key="value">Header</h1>
 </section>
 `, result)
+	})
+	t.Run("inline attributes", func(t *testing.T) {
+		result := printDjot(`![img](link){key="value"}`)
+		t.Log(result)
 	})
 }

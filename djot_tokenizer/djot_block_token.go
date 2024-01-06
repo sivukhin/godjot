@@ -105,13 +105,21 @@ func MatchBlockToken(
 		if next, ok = r.Token(next, blockToken); !ok {
 			return fail()
 		}
+		startKey := next
 		next, ok = r.MaskRepeat(next, NotBracketByteMask, 0)
 		tokenizer.Assertf(ok, "MaskRepeat must match because minCount is zero")
+		endKey := next
 
 		if next, ok = r.Token(next, "]:"); !ok {
 			return fail()
 		}
-		return success(tokenizer.Token[DjotToken]{Type: tokenType, Start: initialState, End: next}, next)
+		token := tokenizer.Token[DjotToken]{
+			Type:       tokenType,
+			Start:      initialState,
+			End:        next,
+			Attributes: (&tokenizer.Attributes{}).Set(ReferenceKey, r.Select(startKey, endKey)),
+		}
+		return success(token, next)
 	case ThematicBreakToken:
 		next, ok = r.MaskRepeat(next, ThematicBreakByteMask, 0)
 		tokenizer.Assertf(ok, "MaskRepeat must match because minCount is zero")

@@ -340,24 +340,15 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 				continue blockParsingLoop
 			}
 
+			var tokens = []DjotToken{HeadingBlock, QuoteBlock, ListItemBlock, CodeBlock, DivBlock, PipeTableBlock, ParagraphBlock}
+			// Allow FootnoteDefBlock and ReferenceDefBlock blocks only on top level of the document
+			if lastBlockType == DocumentBlock {
+				tokens = []DjotToken{FootnoteDefBlock, ReferenceDefBlock, HeadingBlock, QuoteBlock, ListItemBlock, CodeBlock, DivBlock, PipeTableBlock, ParagraphBlock}
+			}
 			// Handle all other block elements - ParagraphBlock must be last item in the sequence
-			for _, tokenType := range []DjotToken{
-				HeadingBlock,
-				QuoteBlock,
-				ListItemBlock,
-				CodeBlock,
-				DivBlock,
-				PipeTableBlock,
-				FootnoteDefBlock,
-				ReferenceDefBlock,
-				ParagraphBlock,
-			} {
+			for _, tokenType := range tokens {
 				block, next, ok := MatchBlockToken(reader, state, tokenType)
 				if !ok {
-					continue
-				}
-				// Forbid nesting FootnoteDefBlock and ReferenceDefBlock - they should be only on top level of the document
-				if (tokenType == FootnoteDefBlock || tokenType == ReferenceDefBlock) && lastBlockType != DocumentBlock {
 					continue
 				}
 				openBlockLevel(block)

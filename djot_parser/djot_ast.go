@@ -193,16 +193,12 @@ func BuildDjotContext(document []byte, list tokenizer.TokenList[djot_tokenizer.D
 		closeToken := list[i+openToken.JumpToPair]
 		switch openToken.Type {
 		case djot_tokenizer.ReferenceDefBlock:
-			reference := document[openToken.Start:openToken.End]
-			reference = bytes.TrimPrefix(reference, []byte(`[`))
-			reference = bytes.TrimSuffix(reference, []byte(`]:`))
+			reference := openToken.Attributes.Get(djot_tokenizer.ReferenceKey)
 			link := bytes.Trim(document[openToken.End:closeToken.Start], "\t\r\n ")
-			context.References[string(reference)] = link
+			context.References[reference] = link
 		case djot_tokenizer.FootnoteDefBlock:
-			reference := document[openToken.Start:openToken.End]
-			reference = bytes.TrimPrefix(reference, []byte(`[^`))
-			reference = bytes.TrimSuffix(reference, []byte(`]:`))
-			context.FootnoteId[string(reference)] = footnoteId
+			reference := openToken.Attributes.Get(djot_tokenizer.ReferenceKey)
+			context.FootnoteId[reference] = footnoteId
 			footnoteId++
 		}
 	}

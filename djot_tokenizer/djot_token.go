@@ -9,6 +9,7 @@ const (
 	CodeLangKey    = "CodeLangKey"
 	InlineMathKey  = "InlineMathKey"
 	DisplayMathKey = "DisplayMathKey"
+	ReferenceKey   = "ReferenceKey"
 )
 
 const (

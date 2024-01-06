@@ -15,6 +15,7 @@ const (
 	RawInlineFormatKey = "$RawInlineFormatKey"
 	RawBlockFormatKey  = "$RawBlockLevelKey"
 	HeadingLevelKey    = "$HeadingLevelKey"
+	SparseListNodeKey  = "$SparseListNodeKey"
 
 	IdKey       = "id"
 	RoleKey     = "role"
@@ -355,6 +356,18 @@ func BuildDjotAst(document []byte) []TreeNode[DjotNode] {
 	return buildDjotAst(document, context, tokens, false)
 }
 
+func isTight(list tokenizer.TokenList[djot_tokenizer.DjotToken]) bool {
+	i := 0
+	for i < len(list) {
+		closeToken := list[i+list[i].JumpToPair]
+		i += list[i].JumpToPair + 1
+		if i < len(list) && list[i].Type != djot_tokenizer.ListItemBlock && closeToken.End != list[i].Start {
+			return false
+		}
+	}
+	return true
+}
+
 func buildDjotAst(
 	document []byte,
 	context DjotContext,
@@ -369,10 +382,14 @@ func buildDjotAst(
 	groupElementsInsert := make(map[int]TreeNode[DjotNode])
 	{
 		groupElements := make([]TreeNode[DjotNode], 0)
-		activeList := ListProps{}
+		activeList, activeListNode, activeListLastItemSparse := ListProps{}, TreeNode[DjotNode]{}, false
 		i := 0
 		for i < len(list) {
 			openToken := list[i]
+			if openToken.Type != djot_tokenizer.ListItemBlock {
+				activeList, activeListNode, activeListLastItemSparse = ListProps{}, TreeNode[DjotNode]{}, false
+			}
+
 			switch openToken.Type {
 			case djot_tokenizer.HeadingBlock:
 				level := string(bytes.TrimSuffix(document[openToken.Start:openToken.End], []byte(" ")))
@@ -400,7 +417,6 @@ func buildDjotAst(
 					groupElementsPop[i] = 1
 					groupElements = groupElements[:len(groupElements)-1]
 				}
-				activeList = currentList
 				if len(groupElements) == 0 || !groupElements[len(groupElements)-1].Type.IsList() {
 					attributes := &tokenizer.Attributes{}
 					if currentStart != "1" && currentStart != "" {
@@ -409,13 +425,14 @@ func buildDjotAst(
 					if currentList.Marker != "1" && currentList.Marker != "" {
 						attributes.Set("type", currentList.Marker)
 					}
-					listNode := TreeNode[DjotNode]{
-						Type:       currentList.Type,
-						Attributes: attributes,
-					}
-					groupElementsInsert[i] = listNode
-					groupElements = append(groupElements, listNode)
+					activeList, activeListNode = currentList, TreeNode[DjotNode]{Type: currentList.Type, Attributes: attributes}
+					groupElementsInsert[i] = activeListNode
+					groupElements = append(groupElements, activeListNode)
 				}
+				if !isTight(list[i+1:i+openToken.JumpToPair]) || activeListLastItemSparse {
+					activeListNode.Attributes.Set(SparseListNodeKey, "true")
+				}
+				activeListLastItemSparse = list[i+openToken.JumpToPair-1].End < list[i+openToken.JumpToPair].Start
 			default:
 				if len(groupElements) > 0 && groupElements[len(groupElements)-1].Type.IsList() {
 					groupElementsPop[i] = 1
@@ -429,6 +446,7 @@ func buildDjotAst(
 	nodes := make([]TreeNode[DjotNode], 0)
 	groups := []*[]TreeNode[DjotNode]{&nodes}
 	nodesRef := &nodes
+	isSparseList := false
 	{
 		i := 0
 		for i < len(list) {
@@ -458,6 +476,7 @@ func buildDjotAst(
 				nodesRef = groups[len(groups)-1]
 			}
 			if insert, ok := groupElementsInsert[i]; ok {
+				_, isSparseList = insert.Attributes.TryGet(SparseListNodeKey)
 				*nodesRef = append(*nodesRef, insert)
 				nodesRef = &(*nodesRef)[len(*nodesRef)-1].Children
 				groups = append(groups, nodesRef)
@@ -705,12 +724,12 @@ func buildDjotAst(
 					*nodesRef = append(*nodesRef, TreeNode[DjotNode]{Type: TextNode, Text: textBytes})
 				}
 			case djot_tokenizer.ListItemBlock:
-				next := list[i+1]
-				if next.Type == djot_tokenizer.ParagraphBlock && next.JumpToPair+2 == openToken.JumpToPair && bytes.Count(document[openToken.End:closeToken.Start], []byte("\n")) <= 1 {
-					children := buildDjotAst(document, context, list[i+2:i+openToken.JumpToPair-1], true)
-					if document[list[i+openToken.JumpToPair-2].Start] != '\n' {
+				if !isSparseList && list[i+1].Type == djot_tokenizer.ParagraphBlock {
+					children := buildDjotAst(document, context, list[i+2:i+1+list[i+1].JumpToPair], true)
+					if list[i+1+list[i+1].JumpToPair].End == len(document) {
 						children = append(children, TreeNode[DjotNode]{Type: TextNode, Text: []byte("\n")})
 					}
+					children = append(children, buildDjotAst(document, context, list[i+1+list[i+1].JumpToPair+1:i+openToken.JumpToPair], false)...)
 					*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
 						Type:     ListItemNode,
 						Children: children,

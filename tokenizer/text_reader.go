@@ -38,94 +38,92 @@ func Union(masks ...ByteMask) ByteMask {
 	return result
 }
 
-type TextReader []byte
-type ReaderState int
-
-const Unmatched ReaderState = -1
+type (
+	TextReader  []byte
+	ReaderState = int
+)
 
 var (
 	SpaceByteMask        = NewByteMask([]byte(" \t"))
 	SpaceNewLineByteMask = NewByteMask([]byte(" \t\r\n"))
 )
 
-func (s ReaderState) Matched() bool {
-	return s != Unmatched
-}
-
 func (r TextReader) Select(start, end ReaderState) string {
 	return string(r[start:end])
 }
-
-func (r TextReader) EmptyOrWhiteSpace(s ReaderState) ReaderState {
-	next := r.MaskRepeat(s, SpaceNewLineByteMask, 0)
-	if !r.Empty(next) {
-		return Unmatched
+func (r TextReader) EmptyOrWhiteSpace(s ReaderState) (ReaderState, bool) {
+	next, _ := r.MaskRepeat(s, SpaceNewLineByteMask, 0)
+	if !r.IsEmpty(next) {
+		return 0, false
 	}
-	return next
+	return next, true
 }
-func (r TextReader) Mask(s ReaderState, mask ByteMask) ReaderState {
+func (r TextReader) Mask(s ReaderState, mask ByteMask) (ReaderState, bool) {
 	if r.HasMask(s, mask) {
-		return s + 1
+		return s + 1, true
 	}
-	return Unmatched
+	return 0, false
 }
-func (r TextReader) Token(s ReaderState, token string) ReaderState {
+func (r TextReader) Token(s ReaderState, token string) (ReaderState, bool) {
 	if r.HasToken(s, token) {
-		return s + ReaderState(len([]byte(token)))
+		return s + len([]byte(token)), true
 	}
-	return Unmatched
+	return 0, false
 }
-func (r TextReader) ByteRepeat(s ReaderState, b byte, count int) ReaderState {
-	for !r.Empty(s) {
+func (r TextReader) ByteRepeat(s ReaderState, b byte, minCount int) (ReaderState, bool) {
+	for !r.IsEmpty(s) {
 		if r.HasByte(s, b) {
 			s++
-			count--
+			minCount--
 		} else {
 			break
 		}
 	}
-	if count <= 0 {
-		return s
+	if minCount <= 0 {
+		return s, true
 	}
-	return Unmatched
+	return 0, false
 }
-func (r TextReader) MaskRepeat(s ReaderState, mask ByteMask, count int) ReaderState {
-	for !r.Empty(s) {
+func (r TextReader) MaskRepeat(s ReaderState, mask ByteMask, minCount int) (ReaderState, bool) {
+	for !r.IsEmpty(s) {
 		if r.HasMask(s, mask) {
 			s++
-			count--
+			minCount--
 		} else {
 			break
 		}
 	}
-	if count <= 0 {
-		return s
+	if minCount <= 0 {
+		return s, true
 	}
-	return Unmatched
+	return 0, false
 }
 
-func (r TextReader) Empty(current ReaderState) bool {
-	return int(current) >= len(r) || current < 0
+func (r TextReader) IsEmptyOrWhiteSpace(s ReaderState) bool {
+	next, _ := r.MaskRepeat(s, SpaceNewLineByteMask, 0)
+	return r.IsEmpty(next)
+}
+func (r TextReader) IsEmpty(s ReaderState) bool {
+	return s >= len(r) || s < 0
 }
 func (r TextReader) HasToken(s ReaderState, token string) bool {
 	return bytes.HasPrefix(r[s:], []byte(token))
 }
 func (r TextReader) HasByte(s ReaderState, b byte) bool {
-	if r.Empty(s) {
+	if r.IsEmpty(s) {
 		return false
 	}
 	return r[s] == b
 }
 func (r TextReader) HasMask(s ReaderState, mask ByteMask) bool {
-	if r.Empty(s) {
+	if r.IsEmpty(s) {
 		return false
 	}
 	return mask.Has(r[s])
 }
-
-func (r TextReader) Peek(current ReaderState) (byte, bool) {
-	if int(current) < len(r) {
-		return r[current], true
+func (r TextReader) Peek(s ReaderState) (byte, bool) {
+	if s < len(r) {
+		return r[s], true
 	}
 	return 0, false
 }

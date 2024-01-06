@@ -24,29 +24,40 @@ var (
 
 func MatchBlockToken(
 	r tokenizer.TextReader,
-	s tokenizer.ReaderState,
+	initialState tokenizer.ReaderState,
 	tokenType DjotToken,
-) (token tokenizer.Token[DjotToken], next tokenizer.ReaderState) {
-	next = tokenizer.Unmatched
+) (tokenizer.Token[DjotToken], tokenizer.ReaderState, bool) {
+	fail := func() (tokenizer.Token[DjotToken], tokenizer.ReaderState, bool) {
+		return tokenizer.Token[DjotToken]{}, initialState, false
+	}
+	success := func(token tokenizer.Token[DjotToken], state tokenizer.ReaderState) (tokenizer.Token[DjotToken], tokenizer.ReaderState, bool) {
+		return token, state, true
+	}
 
-	s = r.MaskRepeat(s, tokenizer.SpaceByteMask, 0)
+	var ok bool
+
+	initialState, ok = r.MaskRepeat(initialState, tokenizer.SpaceByteMask, 0)
+	tokenizer.Assertf(ok, "MaskRepeat must match because minCount is zero")
+
+	next := initialState // initialize next variable to initialState in order to use next, ok = r.Matcher(next, ...) structure whenever it's possible
+
 	switch tokenType {
 	case HeadingBlock:
-		if next = r.ByteRepeat(s, '#', 1); !next.Matched() {
-			return
+		if next, ok = r.ByteRepeat(next, '#', 1); !ok {
+			return fail()
 		}
-		if next = r.Mask(next, tokenizer.SpaceByteMask); !next.Matched() {
-			return
+		if next, ok = r.Mask(next, tokenizer.SpaceByteMask); !ok {
+			return fail()
 		}
-		token = tokenizer.Token[DjotToken]{Type: tokenType, Start: int(s), End: int(next)}
+		return success(tokenizer.Token[DjotToken]{Type: tokenType, Start: initialState, End: next}, next)
 	case QuoteBlock:
-		if next = r.Token(s, ">"); !next.Matched() {
-			return
+		if next, ok = r.Token(next, ">"); !ok {
+			return fail()
 		}
-		if next = r.Mask(next, tokenizer.SpaceNewLineByteMask); !next.Matched() {
-			return
+		if next, ok = r.Mask(next, tokenizer.SpaceNewLineByteMask); !ok {
+			return fail()
 		}
-		token = tokenizer.Token[DjotToken]{Type: tokenType, Start: int(s), End: int(next)}
+		return success(tokenizer.Token[DjotToken]{Type: tokenType, Start: initialState, End: next}, next)
 	case DivBlock, CodeBlock:
 		var symbol byte
 		var attributeKey string
@@ -57,32 +68,32 @@ func MatchBlockToken(
 			symbol, attributeKey = '`', CodeLangKey
 		}
 
-		if next = r.ByteRepeat(s, symbol, 3); !next.Matched() {
-			return
+		if next, ok = r.ByteRepeat(next, symbol, 3); !ok {
+			return fail()
 		}
 
-		next = r.MaskRepeat(next, tokenizer.SpaceByteMask, 0) // will always match because count = 0
-		if r.EmptyOrWhiteSpace(next).Matched() {
-			token = tokenizer.Token[DjotToken]{Type: tokenType, Start: int(s), End: int(next)}
-			return
+		next, ok = r.MaskRepeat(next, tokenizer.SpaceByteMask, 0)
+		tokenizer.Assertf(ok, "MaskRepeat must match because minCount is zero")
+		if r.IsEmptyOrWhiteSpace(next) {
+			return success(tokenizer.Token[DjotToken]{Type: tokenType, Start: initialState, End: next}, next)
 		}
 
 		metaStart := next
-		next = r.MaskRepeat(next, NotSpaceByteMask, 1) // will always match because !r.Empty(next) and next symbol is not in SpaceByteMask
+		next, ok = r.MaskRepeat(next, NotSpaceByteMask, 1)
+		tokenizer.Assertf(ok, "MaskRepeat must match because !r.IsEmpty(next) and next symbol is not in SpaceByteMask")
 		metaEnd := next
 
-		next = r.EmptyOrWhiteSpace(next)
-		if !next.Matched() {
-			return
+		if next, ok = r.EmptyOrWhiteSpace(next); !ok {
+			return fail()
 		}
 
-		attributes := tokenizer.Attributes{}
-		token = tokenizer.Token[DjotToken]{
+		token := tokenizer.Token[DjotToken]{
 			Type:       tokenType,
-			Start:      int(s),
-			End:        int(next),
-			Attributes: attributes.Set(attributeKey, r.Select(metaStart, metaEnd)),
+			Start:      initialState,
+			End:        next,
+			Attributes: (&tokenizer.Attributes{}).Set(attributeKey, r.Select(metaStart, metaEnd)),
 		}
+		return success(token, next)
 	case ReferenceDefBlock, FootnoteDefBlock:
 		var blockToken string
 		switch tokenType {
@@ -91,79 +102,64 @@ func MatchBlockToken(
 		case FootnoteDefBlock:
 			blockToken = "[^"
 		}
-		next = r.Token(s, blockToken)
-		if !next.Matched() {
-			return
+		if next, ok = r.Token(next, blockToken); !ok {
+			return fail()
 		}
-		next = r.MaskRepeat(next, NotBracketByteMask, 0) // will always match because count = 0
+		next, ok = r.MaskRepeat(next, NotBracketByteMask, 0)
+		tokenizer.Assertf(ok, "MaskRepeat must match because minCount is zero")
 
-		next = r.Token(next, "]:")
-		if !next.Matched() {
-			return
+		if next, ok = r.Token(next, "]:"); !ok {
+			return fail()
 		}
-		token = tokenizer.Token[DjotToken]{Type: tokenType, Start: int(s), End: int(next)}
+		return success(tokenizer.Token[DjotToken]{Type: tokenType, Start: initialState, End: next}, next)
 	case ThematicBreakToken:
-		next = r.MaskRepeat(s, ThematicBreakByteMask, 0)
-		if !r.Empty(next) {
-			next = tokenizer.Unmatched
-			return
+		next, ok = r.MaskRepeat(next, ThematicBreakByteMask, 0)
+		tokenizer.Assertf(ok, "MaskRepeat must match because minCount is zero")
+		if !r.IsEmpty(next) {
+			return fail()
 		}
-		if bytes.Count(r[s:next], []byte("*")) < 3 && bytes.Count(r[s:next], []byte("-")) < 3 {
-			next = tokenizer.Unmatched
-			return
+		// three or more * or - characters required for thematic break
+		if bytes.Count(r[initialState:next], []byte{'*'}) < 3 && bytes.Count(r[initialState:next], []byte{'-'}) < 3 {
+			return fail()
 		}
-		token = tokenizer.Token[DjotToken]{Type: tokenType, Start: int(s), End: int(next)}
+		return success(tokenizer.Token[DjotToken]{Type: tokenType, Start: initialState, End: next}, next)
 	case ListItemBlock:
-		for _, simpleToken := range []string{"+ ", "* ", "- ", ": ", "- [ ] ", "- [x] ", "- [X] "} {
-			next = r.Token(s, simpleToken)
-			if next.Matched() {
-				token = tokenizer.Token[DjotToken]{Type: tokenType, Start: int(s), End: int(next)}
-				return
+		for _, simpleToken := range [...]string{"+ ", "* ", "- ", ": ", "- [ ] ", "- [x] ", "- [X] "} {
+			if simple, ok := r.Token(next, simpleToken); ok {
+				return success(tokenizer.Token[DjotToken]{Type: tokenType, Start: initialState, End: simple}, simple)
 			}
 		}
-		for _, complexToken := range []tokenizer.ByteMask{DigitByteMask, LowerAlphaByteMask, UpperAlphaByteMask} {
-			next = r.Token(s, "(")
-			if next.Matched() {
-				next = r.MaskRepeat(next, complexToken, 1)
-				if !next.Matched() {
-					continue
-				}
-				next = r.Token(next, ") ")
-				if next.Matched() {
-					break
-				}
-			} else {
-				next = r.MaskRepeat(s, complexToken, 1)
-				if !next.Matched() {
-					continue
-				}
-				parEnding := r.Token(next, ") ")
-				dotEnding := r.Token(next, ". ")
-				if parEnding.Matched() {
-					next = parEnding
-					break
-				} else if dotEnding.Matched() {
-					next = dotEnding
-					break
-				} else {
-					next = tokenizer.Unmatched
-				}
+
+		for _, complexTokenMask := range [...]tokenizer.ByteMask{DigitByteMask, LowerAlphaByteMask, UpperAlphaByteMask} {
+			// consider three valid cases: (MASK) | MASK) | MASK.
+			complexNext := next
+			parenOpen, parenOk := r.Token(next, "(")
+			if parenOk {
+				complexNext = parenOpen
+			}
+			if complexNext, ok = r.MaskRepeat(complexNext, complexTokenMask, 1); !ok {
+				continue
+			}
+			if ending, ok := r.Token(complexNext, ") "); ok {
+				return success(tokenizer.Token[DjotToken]{Type: tokenType, Start: initialState, End: ending}, ending)
+			} else if ending, ok := r.Token(complexNext, ". "); ok && !parenOk {
+				return success(tokenizer.Token[DjotToken]{Type: tokenType, Start: initialState, End: ending}, ending)
 			}
 		}
-		token = tokenizer.Token[DjotToken]{Type: tokenType, Start: int(s), End: int(next)}
+		return fail()
 	case PipeTableBlock:
 		// todo (sivukhin, 2023-10-28): check that line ends with another pipe
-		next = r.Token(s, "|")
-		if !next.Matched() {
-			return
+		if next, ok = r.Token(next, "|"); !ok {
+			return fail()
 		}
-		token = tokenizer.Token[DjotToken]{Type: tokenType, Start: int(s), End: int(s)}
+		return success(tokenizer.Token[DjotToken]{Type: tokenType, Start: initialState, End: next}, next)
 	case ParagraphBlock:
-		if r.Empty(s) {
-			return
+		if r.IsEmpty(next) {
+			return fail()
 		}
-		next = s
-		token = tokenizer.Token[DjotToken]{Type: tokenType, Start: int(s), End: int(s)}
+		return success(tokenizer.Token[DjotToken]{Type: tokenType, Start: initialState, End: next}, next)
+	default:
+		tokenizer.Assertf(false, "unexpected djot block token type: %v", tokenType)
+		return fail()
 	}
-	return
 }

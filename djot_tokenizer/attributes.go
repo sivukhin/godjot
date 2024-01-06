@@ -7,47 +7,56 @@ const (
 	DjotAttributeIdKey    = "id"
 )
 
-func MatchQuotedString(r tokenizer.TextReader, s tokenizer.ReaderState) (value []byte, next tokenizer.ReaderState) {
+func MatchQuotedString(r tokenizer.TextReader, s tokenizer.ReaderState) ([]byte, tokenizer.ReaderState, bool) {
+	fail := func() ([]byte, tokenizer.ReaderState, bool) { return nil, 0, false }
+
 	var rawBytesMask = tokenizer.NewByteMask([]byte("\\\"")).Negate()
 
-	next = r.Token(s, "\"")
-	if !next.Matched() {
-		return
+	next, ok := r.Token(s, "\"")
+	if !ok {
+		return fail()
 	}
+
+	var value []byte
 	start := next
 	for {
-		next = r.MaskRepeat(next, rawBytesMask, 0)
+		next, ok = r.MaskRepeat(next, rawBytesMask, 0)
+		tokenizer.Assertf(ok, "MaskRepeat must match because minCount is zero")
+
 		value = append(value, r[start:next]...)
 		start = next
-		if endString := r.Token(next, "\""); endString.Matched() {
-			return value, endString
-		} else if escape := r.Token(next, "\\"); escape.Matched() {
-			if r.Empty(escape) {
-				return nil, tokenizer.Unmatched
+		if endString, ok := r.Token(next, "\""); ok {
+			return value, endString, true
+		} else if escape, ok := r.Token(next, "\\"); ok {
+			if r.IsEmpty(escape) {
+				return fail()
 			}
 			value = append(value, r[escape])
 			start = escape + 1
 			next = escape + 1
 		} else {
-			return nil, tokenizer.Unmatched
+			return fail()
 		}
 	}
 }
 
-func MatchDjotAttribute(r tokenizer.TextReader, s tokenizer.ReaderState) (attributes *tokenizer.Attributes, next tokenizer.ReaderState) {
-	attributes = &tokenizer.Attributes{}
-	next = r.Token(s, "{")
-	if !next.Matched() {
-		return
+func MatchDjotAttribute(r tokenizer.TextReader, s tokenizer.ReaderState) (*tokenizer.Attributes, tokenizer.ReaderState, bool) {
+	fail := func() (*tokenizer.Attributes, tokenizer.ReaderState, bool) { return nil, 0, false }
+
+	attributes := &tokenizer.Attributes{}
+	next, ok := r.Token(s, "{")
+	if !ok {
+		return fail()
 	}
 	comment := false
 	for {
-		next = r.MaskRepeat(next, tokenizer.SpaceNewLineByteMask, 0)
-		if r.Empty(next) {
-			next = tokenizer.Unmatched
-			return
+		next, ok = r.MaskRepeat(next, tokenizer.SpaceNewLineByteMask, 0)
+		tokenizer.Assertf(ok, "MaskRepeat must match because minCount is zero")
+
+		if r.IsEmpty(next) {
+			return fail()
 		}
-		if commentStart := r.Token(next, "%"); commentStart.Matched() {
+		if commentStart, ok := r.Token(next, "%"); ok {
 			if comment {
 				comment = false
 			} else {
@@ -60,48 +69,46 @@ func MatchDjotAttribute(r tokenizer.TextReader, s tokenizer.ReaderState) (attrib
 			next++
 			continue
 		}
-		if attributeEnd := r.Token(next, "}"); attributeEnd.Matched() {
-			return attributes, attributeEnd
+		if attributeEnd, ok := r.Token(next, "}"); ok {
+			return attributes, attributeEnd, true
+		}
+		if classToken, ok := r.Token(next, "."); ok {
+			if next, ok = r.MaskRepeat(classToken, AttributeTokenMask, 1); !ok {
+				return fail()
+			}
+			className := r.Select(classToken, next)
+			if class, hasClass := attributes.TryGet(DjotAttributeClassKey); hasClass {
+				attributes.Set(DjotAttributeClassKey, class+" "+className)
+			} else {
+				attributes.Set(DjotAttributeClassKey, className)
+			}
+			continue
+		} else if idToken, ok := r.Token(next, "#"); ok {
+			if next, ok = r.MaskRepeat(idToken, AttributeTokenMask, 1); !ok {
+				return fail()
+			}
+			attributes.Set(DjotAttributeIdKey, r.Select(idToken, next))
+			continue
 		}
 		startKey := next
-		if classToken := r.Token(next, "."); classToken.Matched() {
-			next = r.MaskRepeat(classToken, AttributeTokenMask, 1)
-		} else if idToken := r.Token(next, "#"); idToken.Matched() {
-			next = r.MaskRepeat(idToken, AttributeTokenMask, 1)
-		} else {
-			next = r.MaskRepeat(next, AttributeTokenMask, 1)
+		if next, ok = r.MaskRepeat(next, AttributeTokenMask, 1); !ok {
+			return fail()
 		}
-		if !next.Matched() {
-			return
-		}
-		key := r.Select(startKey, next)
-		if key[0] == '.' {
-			if class, hasClass := attributes.TryGet(DjotAttributeClassKey); hasClass {
-				attributes.Set(DjotAttributeClassKey, class+" "+key[1:])
-			} else {
-				attributes.Set(DjotAttributeClassKey, key[1:])
-			}
-			continue
-		}
-		if key[0] == '#' {
-			attributes.Set(DjotAttributeIdKey, key[1:])
-			continue
+		endKey := next
+
+		if next, ok = r.Token(next, "="); !ok {
+			return fail()
 		}
 
-		next = r.Token(next, "=")
-		if !next.Matched() {
-			return
-		}
 		startValue := next
-		if value, quoteEnd := MatchQuotedString(r, next); quoteEnd.Matched() {
-			attributes.Set(key, string(value))
+		if value, quoteEnd, ok := MatchQuotedString(r, next); ok {
+			attributes.Set(r.Select(startKey, endKey), string(value))
 			next = quoteEnd
 		} else {
-			next = r.MaskRepeat(next, AttributeTokenMask, 1)
-			if !next.Matched() {
-				return
+			if next, ok = r.MaskRepeat(next, AttributeTokenMask, 1); !ok {
+				return fail()
 			}
-			attributes.Set(key, r.Select(startValue, next))
+			attributes.Set(r.Select(startKey, endKey), r.Select(startValue, next))
 		}
 	}
 }

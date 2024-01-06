@@ -1,9 +1,11 @@
 package djot_tokenizer
 
 import (
-	"github.com/sivukhin/godjot/tokenizer"
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/sivukhin/godjot/tokenizer"
 )
 
 func TestQuotedString(t *testing.T) {
@@ -18,7 +20,8 @@ func TestQuotedString(t *testing.T) {
 		} {
 			t.Run(tt.s, func(t *testing.T) {
 				reader := tokenizer.TextReader(tt.s)
-				value, next := MatchQuotedString(reader, 0)
+				value, next, ok := MatchQuotedString(reader, 0)
+				require.True(t, ok)
 				require.Equal(t, len(tt.s), int(next))
 				require.Equal(t, tt.value, value)
 			})
@@ -28,8 +31,8 @@ func TestQuotedString(t *testing.T) {
 		for _, tt := range []string{`"hello`, `"hello\"`, `hello`, "`hello`"} {
 			t.Run(tt, func(t *testing.T) {
 				reader := tokenizer.TextReader(tt)
-				_, next := MatchQuotedString(reader, 0)
-				require.Equal(t, tokenizer.Unmatched, next)
+				_, _, ok := MatchQuotedString(reader, 0)
+				require.False(t, ok)
 			})
 		}
 	})
@@ -51,7 +54,8 @@ func TestAttributes(t *testing.T) {
 			{s: `{ .a    .b   }`, value: map[string]string{DjotAttributeClassKey: "a b"}}} {
 			t.Run(tt.s, func(t *testing.T) {
 				reader := tokenizer.TextReader(tt.s)
-				value, next := MatchDjotAttribute(reader, 0)
+				value, next, ok := MatchDjotAttribute(reader, 0)
+				require.True(t, ok)
 				require.Equal(t, len(tt.s), int(next))
 				require.Equal(t, tt.value, value.GoMap())
 			})

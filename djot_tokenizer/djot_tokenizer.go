@@ -27,7 +27,7 @@ func BuildInlineDjotTokens(
 		tokenStack.LastLevel().FillUntil(part.Start, Ignore)
 
 	inlineParsingLoop:
-		for !reader.Empty(state) {
+		for !reader.IsEmpty(state) {
 			openInline := tokenStack.LastLevel().FirstOrDefault()
 			openInlineType := openInline.Type
 
@@ -35,8 +35,8 @@ func BuildInlineDjotTokens(
 
 			// Check if verbatim is open - then we can't process any inline-level elements
 			if openInlineType == VerbatimInline {
-				next := MatchInlineToken(reader, state, VerbatimInline^tokenizer.Open)
-				if !next.Matched() {
+				next, ok := MatchInlineToken(reader, state, VerbatimInline^tokenizer.Open)
+				if !ok {
 					state++
 					continue
 				}
@@ -56,7 +56,7 @@ func BuildInlineDjotTokens(
 			}
 
 			// Try match inline attribute
-			if attributes, next := MatchDjotAttribute(reader, state); next.Matched() {
+			if attributes, next, ok := MatchDjotAttribute(reader, state); ok {
 				tokenStack.LastLevel().Push(tokenizer.Token[DjotToken]{
 					Type:       Attribute,
 					Start:      int(state),
@@ -69,7 +69,7 @@ func BuildInlineDjotTokens(
 
 			// EscapedSymbolInline / SmartSymbolInline is non-paired tokens - so we should treat it separately
 			for _, tokenType := range []DjotToken{EscapedSymbolInline, SmartSymbolInline} {
-				if next := MatchInlineToken(reader, state, tokenType); next.Matched() {
+				if next, ok := MatchInlineToken(reader, state, tokenType); ok {
 					tokenStack.LastLevel().Push(tokenizer.Token[DjotToken]{Type: tokenType, Start: int(state), End: int(next)})
 					state = next
 					continue inlineParsingLoop
@@ -95,11 +95,11 @@ func BuildInlineDjotTokens(
 				SymbolsInline,
 			} {
 				// Closing tokens take precedence because of greedy nature of parsing
-				next := MatchInlineToken(reader, state, tokenType^tokenizer.Open)
+				next, ok := MatchInlineToken(reader, state, tokenType^tokenizer.Open)
 				// EmphasisInline / StrongInline elements must contain something in between of open and close tokens
 				forbidClose := (tokenType == EmphasisInline && lastInline.Type == EmphasisInline && lastInline.End == int(state)) ||
 					(tokenType == StrongInline && lastInline.Type == StrongInline && lastInline.End == int(state))
-				if !forbidClose && next.Matched() && tokenStack.PopForgetUntil(tokenType) {
+				if !forbidClose && ok && tokenStack.PopForgetUntil(tokenType) {
 					tokenStack.CloseLevelAt(tokenizer.Token[DjotToken]{Type: tokenType ^ tokenizer.Open, Start: int(state), End: int(next)})
 					state = next
 					continue inlineParsingLoop
@@ -113,8 +113,8 @@ func BuildInlineDjotTokens(
 					lastInline.Type != SpanInline^tokenizer.Open && lastInline.Type != ImageSpanInline^tokenizer.Open {
 					continue
 				}
-				next = MatchInlineToken(reader, state, tokenType)
-				if next.Matched() {
+				next, ok = MatchInlineToken(reader, state, tokenType)
+				if ok {
 					var attributes tokenizer.Attributes
 					token := reader[state:next]
 					if tokenType == VerbatimInline && bytes.HasPrefix(token, []byte("$`")) {
@@ -204,16 +204,18 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 
 		// Try to match block element attribute ({...}) at the start of the line (only in case if last block token was [Document | Quote | ListItem | Div])
 		if lastBlockType == DocumentBlock || lastBlockType == QuoteBlock || lastBlockType == ListItemBlock || lastBlockType == DivBlock {
-			next := reader.MaskRepeat(state, tokenizer.SpaceByteMask, 0)
-			attributes, next := MatchDjotAttribute(reader, next)
-			if next.Matched() {
-				next = reader.EmptyOrWhiteSpace(next)
+			next, ok := reader.MaskRepeat(state, tokenizer.SpaceByteMask, 0)
+			tokenizer.Assertf(ok, "MaskRepeat must match because minCount is zero")
+
+			attributes, next, ok := MatchDjotAttribute(reader, next)
+			if ok {
+				next, ok = reader.EmptyOrWhiteSpace(next)
 			}
-			if next.Matched() {
+			if ok {
 				finalTokens = append(finalTokens, tokenizer.Token[DjotToken]{
 					Type:       Attribute,
-					Start:      int(state),
-					End:        int(next),
+					Start:      state,
+					End:        next,
 					Attributes: attributes,
 				})
 				continue
@@ -232,15 +234,17 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 		for i := 0; i < len(blockTokens); i++ {
 			blockToken := blockTokens[i]
 			if blockToken.Type == ListItemBlock {
-				next := reader.MaskRepeat(state, tokenizer.SpaceByteMask, 0)
-				if !reader.EmptyOrWhiteSpace(next).Matched() && int(next)-lineStart <= blockLineOffset[i] {
+				next, ok := reader.MaskRepeat(state, tokenizer.SpaceByteMask, 0)
+				tokenizer.Assertf(ok, "MaskRepeat must match because minCount is zero")
+
+				if !reader.IsEmptyOrWhiteSpace(next) && next-lineStart <= blockLineOffset[i] {
 					potentialReset = true
 					break
 				}
 				resetBlockAt = i
 			} else if blockToken.Type == QuoteBlock || blockToken.Type == HeadingBlock {
-				_, next := MatchBlockToken(reader, state, blockToken.Type)
-				if !next.Matched() {
+				_, next, ok := MatchBlockToken(reader, state, blockToken.Type)
+				if !ok {
 					potentialReset = true
 					break
 				}
@@ -252,15 +256,15 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 		}
 
 		// Check for empty line and collapse all levels until resetBlockAt
-		if (lastBlockType != CodeBlock || potentialReset) && reader.EmptyOrWhiteSpace(state).Matched() {
+		if (lastBlockType != CodeBlock || potentialReset) && reader.IsEmptyOrWhiteSpace(state) {
 			closeBlockLevelsUntil(int(state), int(state), resetBlockAt)
 			continue
 		}
 
 		// Check if last block is CodeBlock - then any block level logic should be disabled until we close this block
 		if lastBlockType == CodeBlock {
-			token, next := MatchBlockToken(reader, state, CodeBlock)
-			if next.Matched() && lastBlock.PrefixLength(document, '`') <= token.PrefixLength(document, '`') && token.Attributes.Size() == 0 {
+			token, _, ok := MatchBlockToken(reader, state, CodeBlock)
+			if ok && lastBlock.PrefixLength(document, '`') <= token.PrefixLength(document, '`') && token.Attributes.Size() == 0 {
 				closeBlockLevelsUntil(token.Start, token.End, len(blockTokens)-2)
 			} else {
 				inlineParts = append(inlineParts, tokenizer.Range{Start: int(state), End: lineEnd})
@@ -270,8 +274,8 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 
 		// Check if we can close DivBlock
 		if lastDivAt != -1 {
-			token, next := MatchBlockToken(reader, state, DivBlock)
-			if next.Matched() && lastBlock.Length() <= token.Length() && token.Attributes.Size() == 0 {
+			token, _, ok := MatchBlockToken(reader, state, DivBlock)
+			if ok && lastBlock.Length() <= token.Length() && token.Attributes.Size() == 0 {
 				closeBlockLevelsUntil(token.Start, token.End, lastDivAt-1)
 				continue
 			}
@@ -284,7 +288,7 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 			lastBlockType = lastBlock.Type
 
 			// Check if thematic break finishes the line
-			if thematicBreak, next := MatchBlockToken(reader, state, ThematicBreakToken); next.Matched() {
+			if thematicBreak, next, ok := MatchBlockToken(reader, state, ThematicBreakToken); ok {
 				finalTokens = append(finalTokens, tokenizer.Token[DjotToken]{
 					Type:  ThematicBreakToken,
 					Start: thematicBreak.Start,
@@ -295,7 +299,10 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 			}
 
 			// Calculate potential reset level for list items due to indentation
-			state = reader.MaskRepeat(state, tokenizer.SpaceByteMask, 0)
+			var ok bool
+			state, ok = reader.MaskRepeat(state, tokenizer.SpaceByteMask, 0)
+			tokenizer.Assertf(ok, "MaskRepeat must match because minCount is zero")
+
 			resetListPosition := -1
 			for i := len(blockTokens) - 1; i >= 0; i-- {
 				blockToken := blockTokens[i]
@@ -306,7 +313,7 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 
 			// Heading & CodeBlock can't have nested block level content
 			// Paragraph too - but there are subtle rules for list item handling, so we can't break for paragraphs here
-			if listItem, next := MatchBlockToken(reader, state, ListItemBlock); next.Matched() && lastBlockType != HeadingBlock && lastBlockType != CodeBlock {
+			if listItem, next, ok := MatchBlockToken(reader, state, ListItemBlock); ok && lastBlockType != HeadingBlock && lastBlockType != CodeBlock {
 				if resetListPosition != -1 {
 					closeBlockLevelsUntil(int(state), int(state), resetListPosition-1)
 				}
@@ -345,8 +352,8 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 				ReferenceDefBlock,
 				ParagraphBlock,
 			} {
-				block, next := MatchBlockToken(reader, state, tokenType)
-				if !next.Matched() {
+				block, next, ok := MatchBlockToken(reader, state, tokenType)
+				if !ok {
 					continue
 				}
 				// Forbid nesting FootnoteDefBlock and ReferenceDefBlock - they should be only on top level of the document

@@ -9,7 +9,7 @@ var (
 	BacktickByteMask               = tokenizer.NewByteMask([]byte("`"))
 	SmartSymbolByteMask            = tokenizer.NewByteMask([]byte("\n'\""))
 	AlphaNumericSymbolByteMask     = tokenizer.NewByteMask([]byte("+-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"))
-	AsciiPunctuationSymbolByteMask = tokenizer.NewByteMask([]byte(" !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"))
+	AsciiPunctuationSymbolByteMask = tokenizer.NewByteMask([]byte("!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"))
 )
 
 func MatchInlineToken(
@@ -124,8 +124,8 @@ func MatchInlineToken(
 		if r.IsEmpty(next) {
 			return fail()
 		}
-		if next, ok = r.Mask(next, AsciiPunctuationSymbolByteMask); ok {
-			return next, ok
+		if asciiNext, ok := r.Mask(next, AsciiPunctuationSymbolByteMask); ok {
+			return asciiNext, ok
 		}
 		next, ok = r.MaskRepeat(next, tokenizer.SpaceByteMask, 0)
 		tokenizer.Assertf(ok, "MaskRepeat must match because minCount is zero")
@@ -139,7 +139,7 @@ func MatchInlineToken(
 		if !ok {
 			return fail()
 		}
-		if next, ok = r.MaskRepeat(next, AlphaNumericSymbolByteMask, 0); ok && r.HasToken(next, ":") {
+		if word, ok := r.MaskRepeat(next, AlphaNumericSymbolByteMask, 0); ok && r.HasToken(word, ":") {
 			return next, true
 		}
 		return fail()

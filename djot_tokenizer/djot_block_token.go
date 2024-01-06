@@ -2,6 +2,7 @@ package djot_tokenizer
 
 import (
 	"bytes"
+
 	"github.com/sivukhin/godjot/tokenizer"
 )
 
@@ -13,7 +14,12 @@ var (
 	DigitByteMask      = tokenizer.NewByteMask([]byte("0123456789"))
 	LowerAlphaByteMask = tokenizer.NewByteMask([]byte("abcdefghijklmnopqrstuvwxyz"))
 	UpperAlphaByteMask = tokenizer.NewByteMask([]byte("ABCDEFGHIJKLMNOPQRSTUVWXYZ"))
-	AttributeTokenMask = tokenizer.Union(DigitByteMask, LowerAlphaByteMask, UpperAlphaByteMask, tokenizer.NewByteMask([]byte(`-_:`)))
+	AttributeTokenMask = tokenizer.Union(
+		DigitByteMask,
+		LowerAlphaByteMask,
+		UpperAlphaByteMask,
+		tokenizer.NewByteMask([]byte(`-_:`)),
+	)
 )
 
 func MatchBlockToken(

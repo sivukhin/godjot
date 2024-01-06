@@ -8,7 +8,10 @@ type TokenStack[T ~int] struct {
 }
 
 func NewTokenStack[T ~int]() TokenStack[T] {
-	return TokenStack[T]{Levels: []TokenList[T]{{}}, TypeLevels: make(map[T][]int)}
+	return TokenStack[T]{
+		Levels:     []TokenList[T]{{}},
+		TypeLevels: make(map[T][]int),
+	}
 }
 
 func (s *TokenStack[T]) Empty() bool {
@@ -45,8 +48,10 @@ func (s *TokenStack[T]) PopCommit() {
 		}
 	}
 	if popLevel.FirstOrDefault().Type^Open == popLevel.LastOrDefault().Type {
-		(*s.LastLevel())[firstPosition].JumpToPair = lastPosition - firstPosition
-		(*s.LastLevel())[lastPosition].JumpToPair = -(lastPosition - firstPosition)
+		lastLevel := *s.LastLevel()
+		jump := lastPosition - firstPosition
+		lastLevel[firstPosition].JumpToPair = jump
+		lastLevel[lastPosition].JumpToPair = -jump
 	}
 	if typeLevels := s.TypeLevels[popLevel.FirstOrDefault().Type]; len(typeLevels) > 0 {
 		s.TypeLevels[popLevel.FirstOrDefault().Type] = typeLevels[0 : len(typeLevels)-1]

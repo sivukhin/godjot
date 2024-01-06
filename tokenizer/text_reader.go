@@ -38,14 +38,6 @@ func Union(masks ...ByteMask) ByteMask {
 	return result
 }
 
-func Intersection(masks ...ByteMask) ByteMask {
-	result := masks[0]
-	for _, mask := range masks[1:] {
-		result = result.And(mask)
-	}
-	return result
-}
-
 type TextReader []byte
 type ReaderState int
 

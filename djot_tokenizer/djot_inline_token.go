@@ -21,23 +21,23 @@ func MatchInlineToken(
 
 	switch tokenType {
 	case ImageSpanInline:
-		return r.Token(s, "![")
+		return r.Token2(s, [...]byte{'!', '['})
 	case SpanInline:
-		return r.Token(s, "[")
+		return r.Token1(s, [...]byte{'['})
 	case SpanInline ^ tokenizer.Open, ImageSpanInline ^ tokenizer.Open:
-		return r.Token(s, "]")
+		return r.Token1(s, [...]byte{']'})
 	case LinkUrlInline:
-		return r.Token(s, "(")
+		return r.Token1(s, [...]byte{'('})
 	case LinkUrlInline ^ tokenizer.Open:
-		return r.Token(s, ")")
+		return r.Token1(s, [...]byte{')'})
 	case LinkReferenceInline:
-		return r.Token(s, "[")
+		return r.Token1(s, [...]byte{'['})
 	case LinkReferenceInline ^ tokenizer.Open:
-		return r.Token(s, "]")
+		return r.Token1(s, [...]byte{']'})
 	case AutolinkInline:
-		return r.Token(s, "<")
+		return r.Token1(s, [...]byte{'<'})
 	case AutolinkInline ^ tokenizer.Open:
-		return r.Token(s, ">")
+		return r.Token1(s, [...]byte{'>'})
 	case VerbatimInline:
 		next, ok := r.MaskRepeat(s, DollarByteMask, 0)
 		tokenizer.Assertf(ok, "MaskRepeat must match because minCount is zero")
@@ -49,75 +49,75 @@ func MatchInlineToken(
 	case VerbatimInline ^ tokenizer.Open:
 		return r.MaskRepeat(s, BacktickByteMask, 1)
 	case EmphasisInline:
-		if next, ok := r.Token(s, "{_"); ok {
+		if next, ok := r.Token2(s, [...]byte{'{', '_'}); ok {
 			return next, ok
 		}
-		if next, ok := r.Token(s, "_"); ok && !r.HasMask(next, tokenizer.SpaceNewLineByteMask) {
+		if next, ok := r.Token1(s, [...]byte{'_'}); ok && !r.HasMask(next, tokenizer.SpaceNewLineByteMask) {
 			return next, ok
 		}
 		return fail()
 	case EmphasisInline ^ tokenizer.Open:
-		if next, ok := r.Token(s, "_}"); ok {
+		if next, ok := r.Token2(s, [...]byte{'_', '}'}); ok {
 			return next, ok
 		}
-		if next, ok := r.Token(s, "_"); ok && !r.HasMask(s-1, tokenizer.SpaceNewLineByteMask) {
+		if next, ok := r.Token1(s, [...]byte{'_'}); ok && !r.HasMask(s-1, tokenizer.SpaceNewLineByteMask) {
 			return next, ok
 		}
 		return fail()
 	case StrongInline:
-		if next, ok := r.Token(s, "{*"); ok {
+		if next, ok := r.Token2(s, [...]byte{'{', '*'}); ok {
 			return next, ok
 		}
-		if next, ok := r.Token(s, "*"); ok && !r.HasMask(next, tokenizer.SpaceNewLineByteMask) {
+		if next, ok := r.Token1(s, [...]byte{'*'}); ok && !r.HasMask(next, tokenizer.SpaceNewLineByteMask) {
 			return next, ok
 		}
 		return fail()
 	case StrongInline ^ tokenizer.Open:
-		if next, ok := r.Token(s, "*}"); ok {
+		if next, ok := r.Token2(s, [...]byte{'*', '}'}); ok {
 			return next, ok
 		}
-		if next, ok := r.Token(s, "*"); ok && !r.HasMask(s-1, tokenizer.SpaceNewLineByteMask) {
+		if next, ok := r.Token1(s, [...]byte{'*'}); ok && !r.HasMask(s-1, tokenizer.SpaceNewLineByteMask) {
 			return next, ok
 		}
 		return fail()
 	case HighlightedInline:
-		return r.Token(s, "{=")
+		return r.Token2(s, [...]byte{'{', '='})
 	case HighlightedInline ^ tokenizer.Open:
-		return r.Token(s, "=}")
+		return r.Token2(s, [...]byte{'=', '}'})
 	case SuperscriptInline:
-		if next, ok := r.Token(s, "{^"); ok {
+		if next, ok := r.Token2(s, [...]byte{'{', '^'}); ok {
 			return next, ok
 		}
-		return r.Token(s, "^")
+		return r.Token1(s, [...]byte{'^'})
 	case SuperscriptInline ^ tokenizer.Open:
-		if next, ok := r.Token(s, "^}"); ok {
+		if next, ok := r.Token2(s, [...]byte{'^', '}'}); ok {
 			return next, ok
 		}
-		return r.Token(s, "^")
+		return r.Token1(s, [...]byte{'^'})
 	case SubscriptInline:
-		if next, ok := r.Token(s, "{~"); ok {
+		if next, ok := r.Token2(s, [...]byte{'{', '~'}); ok {
 			return next, ok
 		}
-		return r.Token(s, "~")
+		return r.Token1(s, [...]byte{'~'})
 	case SubscriptInline ^ tokenizer.Open:
-		if next, ok := r.Token(s, "~}"); ok {
+		if next, ok := r.Token2(s, [...]byte{'~', '}'}); ok {
 			return next, ok
 		}
-		return r.Token(s, "~")
+		return r.Token1(s, [...]byte{'~'})
 	case InsertInline:
-		return r.Token(s, "{+")
+		return r.Token2(s, [...]byte{'{', '+'})
 	case InsertInline ^ tokenizer.Open:
-		return r.Token(s, "+}")
+		return r.Token2(s, [...]byte{'+', '}'})
 	case DeleteInline:
-		return r.Token(s, "{-")
+		return r.Token2(s, [...]byte{'{', '-'})
 	case DeleteInline ^ tokenizer.Open:
-		return r.Token(s, "-}")
+		return r.Token2(s, [...]byte{'-', '}'})
 	case FootnoteReferenceInline:
-		return r.Token(s, "[^")
+		return r.Token2(s, [...]byte{'[', '^'})
 	case FootnoteReferenceInline ^ tokenizer.Open:
-		return r.Token(s, "]")
+		return r.Token1(s, [...]byte{']'})
 	case EscapedSymbolInline:
-		next, ok := r.Token(s, "\\")
+		next, ok := r.Token1(s, [...]byte{'\\'})
 		if !ok {
 			return fail()
 		}
@@ -129,13 +129,13 @@ func MatchInlineToken(
 		}
 		next, ok = r.MaskRepeat(next, tokenizer.SpaceByteMask, 0)
 		tokenizer.Assertf(ok, "MaskRepeat must match because minCount is zero")
-		return r.Token(next, "\n")
+		return r.Token1(next, [...]byte{'\n'})
 	case RawFormatInline:
-		return r.Token(s, "{=")
+		return r.Token2(s, [...]byte{'{', '='})
 	case RawFormatInline ^ tokenizer.Open:
-		return r.Token(s, "}")
+		return r.Token1(s, [...]byte{'}'})
 	case SymbolsInline:
-		next, ok := r.Token(s, ":")
+		next, ok := r.Token1(s, [...]byte{':'})
 		if !ok {
 			return fail()
 		}
@@ -144,9 +144,9 @@ func MatchInlineToken(
 		}
 		return fail()
 	case SymbolsInline ^ tokenizer.Open:
-		return r.Token(s, ":")
+		return r.Token1(s, [...]byte{':'})
 	case SmartSymbolInline:
-		if next, ok := r.Token(s, "{"); ok {
+		if next, ok := r.Token1(s, [...]byte{'{'}); ok {
 			return r.Mask(next, SmartSymbolByteMask)
 		}
 		if next, ok := r.Mask(s, SmartSymbolByteMask); ok {
@@ -163,7 +163,7 @@ func MatchInlineToken(
 		}
 		return fail()
 	case PipeTableSeparator:
-		next, ok := r.Token(s, "|")
+		next, ok := r.Token1(s, [...]byte{'|'})
 		if !ok {
 			return fail()
 		}
@@ -172,7 +172,7 @@ func MatchInlineToken(
 		s, ok := r.MaskRepeat(s, tokenizer.SpaceByteMask, 0)
 		tokenizer.Assertf(ok, "MaskRepeat must match because minCount is zero")
 
-		if next, ok := r.Token(s, "|"); ok {
+		if next, ok := r.Token1(s, [...]byte{'|'}); ok {
 			if r.IsEmptyOrWhiteSpace(next) {
 				return next, true
 			}

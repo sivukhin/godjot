@@ -64,6 +64,34 @@ func (r TextReader) Mask(s ReaderState, mask ByteMask) (ReaderState, bool) {
 	}
 	return 0, false
 }
+func (r TextReader) Token1(s ReaderState, token [1]byte) (ReaderState, bool) {
+	if r.HasToken1(s, token) {
+		return s + 1, true
+	}
+	return 0, false
+}
+func (r TextReader) Token2(s ReaderState, token [2]byte) (ReaderState, bool) {
+	if r.HasToken2(s, token) {
+		return s + len(token), true
+	}
+	return 0, false
+}
+func (r TextReader) Token3(s ReaderState, token [3]byte) (ReaderState, bool) {
+	if r.HasToken3(s, token) {
+		return s + len(token), true
+	}
+	return 0, false
+}
+func (r TextReader) HasToken1(s ReaderState, token [1]byte) bool {
+	return s < len(r) && r[s] == token[0]
+}
+func (r TextReader) HasToken2(s ReaderState, token [2]byte) bool {
+	return s+1 < len(r) && r[s] == token[0] && r[s+1] == token[1]
+}
+func (r TextReader) HasToken3(s ReaderState, token [3]byte) bool {
+	return s+2 < len(r) && r[s] == token[0] && r[s+1] == token[1] && r[s+2] == token[2]
+}
+
 func (r TextReader) Token(s ReaderState, token string) (ReaderState, bool) {
 	if r.HasToken(s, token) {
 		return s + len([]byte(token)), true
@@ -111,8 +139,6 @@ func (r TextReader) HasToken(s ReaderState, token string) bool {
 		return s < len(r) && r[s] == token[0]
 	} else if len(token) == 2 {
 		return s+1 < len(r) && r[s] == token[0] && r[s+1] == token[1]
-	} else if len(token) == 3 {
-		return s+2 < len(r) && r[s] == token[0] && r[s+1] == token[1] && r[s+2] == token[2]
 	} else {
 		return bytes.HasPrefix(r[s:], []byte(token))
 	}

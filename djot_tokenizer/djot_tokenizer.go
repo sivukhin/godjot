@@ -124,8 +124,8 @@ func BuildInlineDjotTokens(
 					}
 					tokenStack.OpenLevelAt(tokenizer.Token[DjotToken]{
 						Type:       tokenType,
-						Start:      int(state),
-						End:        int(next),
+						Start:      state,
+						End:        next,
 						Attributes: &attributes,
 					})
 					state = next
@@ -233,7 +233,7 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 		resetBlockAt, potentialReset := 0, false
 		for i := 0; i < len(blockTokens); i++ {
 			blockToken := blockTokens[i]
-			if blockToken.Type == ListItemBlock {
+			if blockToken.Type == ListItemBlock || blockToken.Type == FootnoteDefBlock {
 				next, ok := reader.MaskRepeat(state, tokenizer.SpaceByteMask, 0)
 				tokenizer.Assertf(ok, "MaskRepeat must match because minCount is zero")
 
@@ -250,7 +250,7 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 				}
 				state = next
 				resetBlockAt = i
-			} else if blockToken.Type != ParagraphBlock && blockToken.Type != HeadingBlock && blockToken.Type != ReferenceDefBlock && blockToken.Type != FootnoteDefBlock {
+			} else if blockToken.Type != ParagraphBlock && blockToken.Type != HeadingBlock && blockToken.Type != ReferenceDefBlock {
 				resetBlockAt = i
 			}
 		}

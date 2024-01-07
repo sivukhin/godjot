@@ -375,7 +375,8 @@ func detectListProps(document []byte, token tokenizer.Token[djot_tokenizer.DjotT
 func BuildDjotAst(document []byte) []TreeNode[DjotNode] {
 	tokens := djot_tokenizer.BuildDjotTokens(document)
 	context := BuildDjotContext(document, tokens)
-	return buildDjotAst(document, context, tokens, false)
+	ast := buildDjotAst(document, context, tokens, false)
+	return ast
 }
 
 func isTight(list tokenizer.TokenList[djot_tokenizer.DjotToken]) bool {
@@ -400,6 +401,7 @@ func buildDjotAst(
 		return nil
 	}
 
+	footnotes := make([]TreeNode[DjotNode], 0)
 	groupElementsPop := make(map[int]int)
 	groupElementsInsert := make(map[int]TreeNode[DjotNode])
 	{
@@ -792,6 +794,28 @@ func buildDjotAst(
 						})
 					}
 				}
+			case djot_tokenizer.FootnoteDefBlock:
+				footnoteId := context.FootnoteId[attributes.Get(djot_tokenizer.ReferenceKey)]
+				children := buildDjotAst(document, context, list[i+1:i+openToken.JumpToPair], false)
+				backrefLinkNode := TreeNode[DjotNode]{
+					Type:       LinkNode,
+					Children:   []TreeNode[DjotNode]{{Type: TextNode, Text: []byte("↩︎︎")}},
+					Attributes: (&tokenizer.Attributes{}).Set(LinkHrefKey, fmt.Sprintf("#fnref%v", footnoteId)).Set("role", "doc-backlink"),
+				}
+				if children[len(children)-1].Type == ParagraphNode {
+					children[len(children)-1].Children = append(children[len(children)-1].Children, backrefLinkNode)
+				} else {
+					children = append(children, TreeNode[DjotNode]{Type: ParagraphNode, Children: []TreeNode[DjotNode]{backrefLinkNode}})
+				}
+				footnotes = append(footnotes, TreeNode[DjotNode]{
+					Type: ListItemNode,
+					Children: []TreeNode[DjotNode]{{
+						Type:       FootnoteDefNode,
+						Children:   children,
+						Attributes: attributes,
+					}},
+					Attributes: (&tokenizer.Attributes{}).Set("id", fmt.Sprintf("fn%v", footnoteId)),
+				})
 			case djot_tokenizer.None:
 				if textNode {
 					if attributes.Size() > 0 {
@@ -809,6 +833,17 @@ func buildDjotAst(
 			}
 			i = nextI
 		}
+	}
+	if len(footnotes) > 0 {
+		fmt.Printf("footnotes: %#v\n", footnotes)
+		nodes = append(nodes, TreeNode[DjotNode]{
+			Type:       SectionNode,
+			Attributes: (&tokenizer.Attributes{}).Set("role", "doc-endnotes"),
+			Children: []TreeNode[DjotNode]{
+				{Type: ThematicBreakNode},
+				{Type: OrderedListNode, Children: footnotes},
+			},
+		})
 	}
 	return nodes
 }

@@ -73,6 +73,7 @@ var DefaultConversionRegistry = map[DjotNode]Conversion{
 	SectionNode:        func(s ConversionState, n func()) { s.BlockNodeConverter("section", n) },
 	QuoteNode:          func(s ConversionState, n func()) { s.BlockNodeConverter("blockquote", n) },
 	DocumentNode:       func(s ConversionState, n func()) { n() },
+	FootnoteDefNode:    func(s ConversionState, n func()) { n() },
 	CodeNode: func(s ConversionState, n func()) {
 		s.Writer.OpenTag("pre", s.Node.Attributes.Entries()...).OpenTag("code")
 		n()

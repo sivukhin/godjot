@@ -222,6 +222,9 @@ func BuildDjotContext(document []byte, list tokenizer.TokenList[djot_tokenizer.D
 			reference := openToken.Attributes.Get(djot_tokenizer.ReferenceKey)
 			context.FootnoteId[reference] = footnoteId
 			footnoteId++
+		case djot_tokenizer.HeadingBlock:
+			headerId := createSectionId(string(selectText(document, list[i+1:i+openToken.JumpToPair])))
+			context.References[headerId] = []byte("#" + headerId)
 		}
 		i++
 	}

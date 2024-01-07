@@ -23,7 +23,7 @@ func BuildInlineDjotTokens(
 		End:   leftDocumentPosition,
 	})
 	for _, part := range parts {
-		reader, state := tokenizer.TextReader(document[:part.End]), tokenizer.ReaderState(part.Start)
+		reader, state := tokenizer.TextReader(document[:part.End]), part.Start
 		tokenStack.LastLevel().FillUntil(part.Start, Ignore)
 
 	inlineParsingLoop:
@@ -250,14 +250,14 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 				}
 				state = next
 				resetBlockAt = i
-			} else if blockToken.Type != ParagraphBlock && blockToken.Type != HeadingBlock {
+			} else if blockToken.Type != ParagraphBlock && blockToken.Type != HeadingBlock && blockToken.Type != ReferenceDefBlock && blockToken.Type != FootnoteDefBlock {
 				resetBlockAt = i
 			}
 		}
 
 		// Check for empty line and collapse all levels until resetBlockAt
 		if (lastBlockType != CodeBlock || potentialReset) && reader.IsEmptyOrWhiteSpace(state) {
-			closeBlockLevelsUntil(int(state), int(state), resetBlockAt)
+			closeBlockLevelsUntil(state, state, resetBlockAt)
 			continue
 		}
 

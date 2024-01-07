@@ -132,7 +132,7 @@ func MatchBlockToken(
 		}
 		return success(tokenizer.Token[DjotToken]{Type: tokenType, Start: initialState, End: next}, next)
 	case ListItemBlock:
-		for _, simpleToken := range [...]string{"+ ", "* ", "- ", ": ", "- [ ] ", "- [x] ", "- [X] "} {
+		for _, simpleToken := range [...]string{"- [ ] ", "- [x] ", "- [X] ", "+ ", "* ", "- ", ": "} {
 			if simple, ok := r.Token(next, simpleToken); ok {
 				return success(tokenizer.Token[DjotToken]{Type: tokenType, Start: initialState, End: simple}, simple)
 			}

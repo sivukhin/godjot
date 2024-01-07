@@ -12,16 +12,20 @@ import (
 )
 
 const (
-	RawInlineFormatKey = "$RawInlineFormatKey"
-	RawBlockFormatKey  = "$RawBlockLevelKey"
-	HeadingLevelKey    = "$HeadingLevelKey"
-	SparseListNodeKey  = "$SparseListNodeKey"
+	RawInlineFormatKey    = "$RawInlineFormatKey"
+	RawBlockFormatKey     = "$RawBlockLevelKey"
+	HeadingLevelKey       = "$HeadingLevelKey"
+	SparseListNodeKey     = "$SparseListNodeKey"
+	DefinitionListItemKey = "$DefinitionListItemKey"
 
-	IdKey       = "id"
-	RoleKey     = "role"
-	LinkHrefKey = "href"
-	ImgAltKey   = "alt"
-	ImgSrcKey   = "src"
+	IdKey                  = "id"
+	RoleKey                = "role"
+	LinkHrefKey            = "href"
+	ImgAltKey              = "alt"
+	ImgSrcKey              = "src"
+	TaskListClass          = "task-list"
+	CheckedTaskItemClass   = "checked"
+	UncheckedTaskItemClass = "unchecked"
 )
 
 type DjotNode int
@@ -37,6 +41,8 @@ const (
 	DefinitionListNode
 	TaskListNode
 	ListItemNode
+	DefinitionTermNode
+	DefinitionItemNode
 	CodeNode
 	RawNode
 	ThematicBreakNode
@@ -78,6 +84,10 @@ func (n DjotNode) String() string {
 		return "QuoteNode"
 	case ListItemNode:
 		return "ListItemNode"
+	case DefinitionTermNode:
+		return "DefinitionTermNode"
+	case DefinitionItemNode:
+		return "DefinitionItemNode"
 	case UnorderedListNode:
 		return "UnorderedListNode"
 	case OrderedListNode:
@@ -174,21 +184,31 @@ func convertTokenToNode(token djot_tokenizer.DjotToken) DjotNode {
 func normalizeLinkText(link []byte) []byte { return bytes.ReplaceAll(link, []byte("\n"), nil) }
 
 type DjotContext struct {
-	References map[string][]byte
-	FootnoteId map[string]int
+	References          map[string][]byte
+	ReferenceAttributes map[string]*tokenizer.Attributes
+	FootnoteId          map[string]int
 }
 
 func BuildDjotContext(document []byte, list tokenizer.TokenList[djot_tokenizer.DjotToken]) DjotContext {
 	context := DjotContext{
-		References: make(map[string][]byte),
-		FootnoteId: make(map[string]int),
+		References:          make(map[string][]byte),
+		ReferenceAttributes: make(map[string]*tokenizer.Attributes),
+		FootnoteId:          make(map[string]int),
 	}
 
 	footnoteId := 1
 
-	for i := 0; i < len(list); i++ {
+	i := 0
+	for i < len(list) {
+		attributes := &tokenizer.Attributes{}
+		for i < len(list) && list[i].Type == djot_tokenizer.Attribute {
+			attributes = attributes.MergeWith(list[i].Attributes)
+			i++
+		}
+
 		openToken := list[i]
 		if openToken.JumpToPair <= 0 {
+			i++
 			continue
 		}
 		closeToken := list[i+openToken.JumpToPair]
@@ -197,11 +217,13 @@ func BuildDjotContext(document []byte, list tokenizer.TokenList[djot_tokenizer.D
 			reference := openToken.Attributes.Get(djot_tokenizer.ReferenceKey)
 			link := bytes.Trim(document[openToken.End:closeToken.Start], "\t\r\n ")
 			context.References[reference] = link
+			context.ReferenceAttributes[reference] = attributes
 		case djot_tokenizer.FootnoteDefBlock:
 			reference := openToken.Attributes.Get(djot_tokenizer.ReferenceKey)
 			context.FootnoteId[reference] = footnoteId
 			footnoteId++
 		}
+		i++
 	}
 	return context
 }
@@ -425,6 +447,9 @@ func buildDjotAst(
 					if currentList.Marker != "1" && currentList.Marker != "" {
 						attributes.Set("type", currentList.Marker)
 					}
+					if currentList.Type == TaskListNode {
+						attributes.Append(djot_tokenizer.DjotAttributeClassKey, TaskListClass)
+					}
 					activeList, activeListNode = currentList, TreeNode[DjotNode]{Type: currentList.Type, Attributes: attributes}
 					groupElementsInsert[i] = activeListNode
 					groupElements = append(groupElements, activeListNode)
@@ -446,7 +471,7 @@ func buildDjotAst(
 	nodes := make([]TreeNode[DjotNode], 0)
 	groups := []*[]TreeNode[DjotNode]{&nodes}
 	nodesRef := &nodes
-	isSparseList := false
+	isSparseList, listType := false, DjotNode(0)
 	{
 		i := 0
 		for i < len(list) {
@@ -477,6 +502,8 @@ func buildDjotAst(
 			}
 			if insert, ok := groupElementsInsert[i]; ok {
 				_, isSparseList = insert.Attributes.TryGet(SparseListNodeKey)
+				listType = insert.Type
+
 				*nodesRef = append(*nodesRef, insert)
 				nodesRef = &(*nodesRef)[len(*nodesRef)-1].Children
 				groups = append(groups, nodesRef)
@@ -625,7 +652,7 @@ func buildDjotAst(
 					}
 					attributes.Set(ImgAltKey, string(selectText(document, list[i+1:i+openToken.JumpToPair])))
 					if href := string(normalizeLinkText(context.References[string(reference)])); href != "" {
-						attributes.Set(ImgSrcKey, href)
+						attributes.Set(ImgSrcKey, href).MergeWith(context.ReferenceAttributes[string(reference)])
 					}
 					*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
 						Type:       ImageNode,
@@ -662,7 +689,7 @@ func buildDjotAst(
 						reference = selectText(document, list[i+1:i+openToken.JumpToPair])
 					}
 					if href := string(normalizeLinkText(context.References[string(reference)])); href != "" {
-						attributes.Set(LinkHrefKey, href)
+						attributes.Set(LinkHrefKey, href).MergeWith(context.ReferenceAttributes[string(reference)])
 					}
 					*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
 						Type:       LinkNode,
@@ -724,21 +751,46 @@ func buildDjotAst(
 					*nodesRef = append(*nodesRef, TreeNode[DjotNode]{Type: TextNode, Text: textBytes})
 				}
 			case djot_tokenizer.ListItemBlock:
-				if !isSparseList && list[i+1].Type == djot_tokenizer.ParagraphBlock {
-					children := buildDjotAst(document, context, list[i+2:i+1+list[i+1].JumpToPair], true)
-					if list[i+1+list[i+1].JumpToPair].End == len(document) {
-						children = append(children, TreeNode[DjotNode]{Type: TextNode, Text: []byte("\n")})
+				if listType == DefinitionListNode {
+					attributes = attributes.Set(DefinitionListItemKey, "true")
+					var definitionTermChildren []TreeNode[DjotNode]
+					if list[i+1].Type == djot_tokenizer.ParagraphBlock {
+						definitionTermChildren = buildDjotAst(document, context, trimPadding(document, list[i+2:i+1+list[i+1].JumpToPair]), true)
 					}
-					children = append(children, buildDjotAst(document, context, list[i+1+list[i+1].JumpToPair+1:i+openToken.JumpToPair], false)...)
+					definitionItemChildren := buildDjotAst(document, context, list[i+1+list[i+1].JumpToPair+1:i+openToken.JumpToPair], false)
 					*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
-						Type:     ListItemNode,
-						Children: children,
+						Type:       DefinitionTermNode,
+						Children:   definitionTermChildren,
+						Attributes: attributes,
+					})
+					*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
+						Type:     DefinitionItemNode,
+						Children: definitionItemChildren,
 					})
 				} else {
-					*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
-						Type:     ListItemNode,
-						Children: buildDjotAst(document, context, list[i+1:i+openToken.JumpToPair], textNode),
-					})
+					if listType == TaskListNode && bytes.HasPrefix(openToken.Bytes(document), []byte("- [ ]")) {
+						attributes = attributes.Append(djot_tokenizer.DjotAttributeClassKey, UncheckedTaskItemClass)
+					} else if listType == TaskListNode {
+						attributes = attributes.Append(djot_tokenizer.DjotAttributeClassKey, CheckedTaskItemClass)
+					}
+					if !isSparseList && list[i+1].Type == djot_tokenizer.ParagraphBlock {
+						children := buildDjotAst(document, context, list[i+2:i+1+list[i+1].JumpToPair], true)
+						if list[i+1+list[i+1].JumpToPair].End == len(document) {
+							children = append(children, TreeNode[DjotNode]{Type: TextNode, Text: []byte("\n")})
+						}
+						children = append(children, buildDjotAst(document, context, list[i+1+list[i+1].JumpToPair+1:i+openToken.JumpToPair], false)...)
+						*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
+							Type:       ListItemNode,
+							Children:   children,
+							Attributes: attributes,
+						})
+					} else {
+						*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
+							Type:       ListItemNode,
+							Children:   buildDjotAst(document, context, list[i+1:i+openToken.JumpToPair], textNode),
+							Attributes: attributes,
+						})
+					}
 				}
 			case djot_tokenizer.None:
 				if textNode {

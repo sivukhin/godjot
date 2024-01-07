@@ -77,11 +77,7 @@ func MatchDjotAttribute(r tokenizer.TextReader, s tokenizer.ReaderState) (*token
 				return fail()
 			}
 			className := r.Select(classToken, next)
-			if class, hasClass := attributes.TryGet(DjotAttributeClassKey); hasClass {
-				attributes.Set(DjotAttributeClassKey, class+" "+className)
-			} else {
-				attributes.Set(DjotAttributeClassKey, className)
-			}
+			attributes.Append(DjotAttributeClassKey, className)
 			continue
 		} else if idToken, ok := r.Token(next, "#"); ok {
 			if next, ok = r.MaskRepeat(idToken, AttributeTokenMask, 1); !ok {

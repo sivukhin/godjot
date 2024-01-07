@@ -15,6 +15,15 @@ func (a *Attributes) Size() int {
 	return len(a.Keys)
 }
 
+func (a *Attributes) Append(key, value string) *Attributes {
+	if previous, ok := a.TryGet(key); ok {
+		a.Set(key, previous+" "+value)
+	} else {
+		a.Set(key, value)
+	}
+	return a
+}
+
 func (a *Attributes) Set(key, value string) *Attributes {
 	if _, ok := a.Map[key]; !ok {
 		a.Keys = append(a.Keys, key)

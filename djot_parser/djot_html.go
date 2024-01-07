@@ -18,20 +18,20 @@ type (
 		Writer *html_writer.HtmlWriter
 		Node   TreeNode[DjotNode]
 	}
-	Conversion         func(state ConversionState, next func(children))
+	Conversion         func(state ConversionState, next func(Children))
 	ConversionRegistry map[DjotNode]Conversion
-	children           []TreeNode[DjotNode]
+	Children           []TreeNode[DjotNode]
 )
 
 func (state ConversionState) StandaloneNodeConverter(tag string) *html_writer.HtmlWriter {
 	return state.Writer.OpenTag(tag, state.Node.Attributes.Entries()...)
 }
 
-func (state ConversionState) InlineNodeConverter(tag string, next func(c children)) *html_writer.HtmlWriter {
+func (state ConversionState) InlineNodeConverter(tag string, next func(c Children)) *html_writer.HtmlWriter {
 	return state.Writer.InTag(tag, state.Node.Attributes.Entries()...)(func() { next(nil) })
 }
 
-func (state ConversionState) BlockNodeConverter(tag string, next func(c children)) *html_writer.HtmlWriter {
+func (state ConversionState) BlockNodeConverter(tag string, next func(c Children)) *html_writer.HtmlWriter {
 	content := func() {
 		state.Writer.WriteString("\n")
 		next(nil)
@@ -45,26 +45,26 @@ var DefaultSymbolRegistry = map[string]string{
 }
 
 var DefaultConversionRegistry = map[DjotNode]Conversion{
-	ThematicBreakNode: func(s ConversionState, n func(c children)) { s.Writer.OpenTag("hr").WriteString("\n") },
-	LineBreakNode:     func(s ConversionState, n func(c children)) { s.Writer.OpenTag("br").WriteString("\n") },
-	TextNode:          func(s ConversionState, n func(c children)) { s.Writer.WriteBytes(s.Node.Text) },
-	SymbolsNode: func(s ConversionState, n func(c children)) {
+	ThematicBreakNode: func(s ConversionState, n func(c Children)) { s.Writer.OpenTag("hr").WriteString("\n") },
+	LineBreakNode:     func(s ConversionState, n func(c Children)) { s.Writer.OpenTag("br").WriteString("\n") },
+	TextNode:          func(s ConversionState, n func(c Children)) { s.Writer.WriteBytes(s.Node.Text) },
+	SymbolsNode: func(s ConversionState, n func(c Children)) {
 		s.Writer.WriteString(DefaultSymbolRegistry[string(s.Node.Text)])
 	},
-	InsertNode:       func(s ConversionState, n func(c children)) { s.InlineNodeConverter("ins", n) },
-	DeleteNode:       func(s ConversionState, n func(c children)) { s.InlineNodeConverter("del", n) },
-	SuperscriptNode:  func(s ConversionState, n func(c children)) { s.InlineNodeConverter("sup", n) },
-	SubscriptNode:    func(s ConversionState, n func(c children)) { s.InlineNodeConverter("sub", n) },
-	HighlightedNode:  func(s ConversionState, n func(c children)) { s.InlineNodeConverter("mark", n) },
-	EmphasisNode:     func(s ConversionState, n func(c children)) { s.InlineNodeConverter("em", n) },
-	StrongNode:       func(s ConversionState, n func(c children)) { s.InlineNodeConverter("strong", n) },
-	ParagraphNode:    func(s ConversionState, n func(c children)) { s.InlineNodeConverter("p", n).WriteString("\n") },
-	ImageNode:        func(s ConversionState, n func(c children)) { s.StandaloneNodeConverter("img") },
-	LinkNode:         func(s ConversionState, n func(c children)) { s.InlineNodeConverter("a", n) },
-	SpanNode:         func(s ConversionState, n func(c children)) { s.InlineNodeConverter("span", n) },
-	DivNode:          func(s ConversionState, n func(c children)) { s.BlockNodeConverter("div", n) },
-	TableCaptionNode: func(s ConversionState, n func(c children)) { n(nil) },
-	TableNode: func(s ConversionState, n func(c children)) {
+	InsertNode:       func(s ConversionState, n func(c Children)) { s.InlineNodeConverter("ins", n) },
+	DeleteNode:       func(s ConversionState, n func(c Children)) { s.InlineNodeConverter("del", n) },
+	SuperscriptNode:  func(s ConversionState, n func(c Children)) { s.InlineNodeConverter("sup", n) },
+	SubscriptNode:    func(s ConversionState, n func(c Children)) { s.InlineNodeConverter("sub", n) },
+	HighlightedNode:  func(s ConversionState, n func(c Children)) { s.InlineNodeConverter("mark", n) },
+	EmphasisNode:     func(s ConversionState, n func(c Children)) { s.InlineNodeConverter("em", n) },
+	StrongNode:       func(s ConversionState, n func(c Children)) { s.InlineNodeConverter("strong", n) },
+	ParagraphNode:    func(s ConversionState, n func(c Children)) { s.InlineNodeConverter("p", n).WriteString("\n") },
+	ImageNode:        func(s ConversionState, n func(c Children)) { s.StandaloneNodeConverter("img") },
+	LinkNode:         func(s ConversionState, n func(c Children)) { s.InlineNodeConverter("a", n) },
+	SpanNode:         func(s ConversionState, n func(c Children)) { s.InlineNodeConverter("span", n) },
+	DivNode:          func(s ConversionState, n func(c Children)) { s.BlockNodeConverter("div", n) },
+	TableCaptionNode: func(s ConversionState, n func(c Children)) { n(nil) },
+	TableNode: func(s ConversionState, n func(c Children)) {
 		if len(s.Node.Children) > 0 && s.Node.Children[0].Type == TableCaptionNode {
 			s.Writer.OpenTag("table", s.Node.Attributes.Entries()...)
 			s.Writer.WriteString("\n")
@@ -76,35 +76,35 @@ var DefaultConversionRegistry = map[DjotNode]Conversion{
 			s.BlockNodeConverter("table", n)
 		}
 	},
-	TableRowNode: func(s ConversionState, n func(c children)) { s.BlockNodeConverter("tr", n) },
-	TableHeaderNode: func(s ConversionState, n func(c children)) {
+	TableRowNode: func(s ConversionState, n func(c Children)) { s.BlockNodeConverter("tr", n) },
+	TableHeaderNode: func(s ConversionState, n func(c Children)) {
 		s.InlineNodeConverter("th", n)
 		s.Writer.WriteString("\n")
 	},
-	TableCellNode: func(s ConversionState, n func(c children)) {
+	TableCellNode: func(s ConversionState, n func(c Children)) {
 		s.InlineNodeConverter("td", n)
 		s.Writer.WriteString("\n")
 	},
-	TaskListNode:       func(s ConversionState, n func(c children)) { s.BlockNodeConverter("ul", n) },
-	DefinitionListNode: func(s ConversionState, n func(c children)) { s.BlockNodeConverter("dl", n) },
-	UnorderedListNode:  func(s ConversionState, n func(c children)) { s.BlockNodeConverter("ul", n) },
-	OrderedListNode:    func(s ConversionState, n func(c children)) { s.BlockNodeConverter("ol", n) },
-	ListItemNode:       func(s ConversionState, n func(c children)) { s.BlockNodeConverter("li", n) },
-	DefinitionTermNode: func(s ConversionState, n func(c children)) {
+	TaskListNode:       func(s ConversionState, n func(c Children)) { s.BlockNodeConverter("ul", n) },
+	DefinitionListNode: func(s ConversionState, n func(c Children)) { s.BlockNodeConverter("dl", n) },
+	UnorderedListNode:  func(s ConversionState, n func(c Children)) { s.BlockNodeConverter("ul", n) },
+	OrderedListNode:    func(s ConversionState, n func(c Children)) { s.BlockNodeConverter("ol", n) },
+	ListItemNode:       func(s ConversionState, n func(c Children)) { s.BlockNodeConverter("li", n) },
+	DefinitionTermNode: func(s ConversionState, n func(c Children)) {
 		s.InlineNodeConverter("dt", n)
 		s.Writer.WriteString("\n")
 	},
-	DefinitionItemNode: func(s ConversionState, n func(c children)) { s.BlockNodeConverter("dd", n) },
-	SectionNode:        func(s ConversionState, n func(c children)) { s.BlockNodeConverter("section", n) },
-	QuoteNode:          func(s ConversionState, n func(c children)) { s.BlockNodeConverter("blockquote", n) },
-	DocumentNode:       func(s ConversionState, n func(c children)) { n(nil) },
-	FootnoteDefNode:    func(s ConversionState, n func(c children)) { n(nil) },
-	CodeNode: func(s ConversionState, n func(c children)) {
+	DefinitionItemNode: func(s ConversionState, n func(c Children)) { s.BlockNodeConverter("dd", n) },
+	SectionNode:        func(s ConversionState, n func(c Children)) { s.BlockNodeConverter("section", n) },
+	QuoteNode:          func(s ConversionState, n func(c Children)) { s.BlockNodeConverter("blockquote", n) },
+	DocumentNode:       func(s ConversionState, n func(c Children)) { n(nil) },
+	FootnoteDefNode:    func(s ConversionState, n func(c Children)) { n(nil) },
+	CodeNode: func(s ConversionState, n func(c Children)) {
 		s.Writer.OpenTag("pre", s.Node.Attributes.Entries()...).OpenTag("code")
 		n(nil)
 		s.Writer.CloseTag("code").CloseTag("pre").WriteString("\n")
 	},
-	VerbatimNode: func(s ConversionState, n func(c children)) {
+	VerbatimNode: func(s ConversionState, n func(c Children)) {
 		if _, ok := s.Node.Attributes.TryGet(djot_tokenizer.InlineMathKey); ok {
 			s.Writer.InTag("span", tokenizer.AttributeEntry{Key: "class", Value: "math inline"})(func() {
 				s.Writer.WriteString("\\(")
@@ -123,11 +123,11 @@ var DefaultConversionRegistry = map[DjotNode]Conversion{
 			s.Writer.InTag("code")(func() { s.Writer.WriteBytes(s.Node.Text) })
 		}
 	},
-	HeadingNode: func(s ConversionState, n func(c children)) {
+	HeadingNode: func(s ConversionState, n func(c Children)) {
 		level := len(s.Node.Attributes.Get(HeadingLevelKey))
 		s.Writer.InTag(fmt.Sprintf("h%v", level), s.Node.Attributes.Entries()...)(func() { n(nil) }).WriteString("\n")
 	},
-	RawNode: func(s ConversionState, next func(c children)) {
+	RawNode: func(s ConversionState, next func(c Children)) {
 		if s.Format == s.Node.Attributes.Get(RawBlockFormatKey) {
 			next(nil)
 		}
@@ -168,7 +168,7 @@ func (context ConversionContext) convertDjotToHtml(builder *html_writer.HtmlWrit
 			Writer: builder,
 			Node:   currentNode,
 		}
-		conversion(state, func(c children) {
+		conversion(state, func(c Children) {
 			if len(c) == 0 {
 				context.convertDjotToHtml(builder, currentNode.Children...)
 			} else {

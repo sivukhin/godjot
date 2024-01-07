@@ -107,7 +107,15 @@ func (r TextReader) IsEmpty(s ReaderState) bool {
 	return s >= len(r) || s < 0
 }
 func (r TextReader) HasToken(s ReaderState, token string) bool {
-	return bytes.HasPrefix(r[s:], []byte(token))
+	if len(token) == 1 {
+		return s < len(r) && r[s] == token[0]
+	} else if len(token) == 2 {
+		return s+1 < len(r) && r[s] == token[0] && r[s+1] == token[1]
+	} else if len(token) == 3 {
+		return s+2 < len(r) && r[s] == token[0] && r[s+1] == token[1] && r[s+2] == token[2]
+	} else {
+		return bytes.HasPrefix(r[s:], []byte(token))
+	}
 }
 func (r TextReader) HasByte(s ReaderState, b byte) bool {
 	if r.IsEmpty(s) {

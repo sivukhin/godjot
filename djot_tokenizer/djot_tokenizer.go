@@ -199,7 +199,7 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 			break
 		}
 
-		reader, state := tokenizer.TextReader(document[:lineEnd]), tokenizer.ReaderState(lineStart)
+		reader, state := tokenizer.TextReader(document[:lineEnd]), lineStart
 		lastBlock := blockTokens[len(blockTokens)-1]
 		lastBlockType := lastBlock.Type
 
@@ -243,6 +243,14 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 					break
 				}
 				resetBlockAt = i
+			} else if blockToken.Type == ReferenceDefBlock {
+				next, ok := reader.MaskRepeat(state, tokenizer.SpaceByteMask, 0)
+				tokenizer.Assertf(ok, "MaskRepeat must match because minCount is zero")
+				if next-lineStart <= blockLineOffset[i] {
+					potentialReset = true
+					break
+				}
+				resetBlockAt = i
 			} else if blockToken.Type == QuoteBlock || blockToken.Type == HeadingBlock {
 				_, next, ok := MatchBlockToken(reader, state, blockToken.Type)
 				if !ok {
@@ -251,15 +259,19 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 				}
 				state = next
 				resetBlockAt = i
-			} else if blockToken.Type != ParagraphBlock && blockToken.Type != HeadingBlock && blockToken.Type != ReferenceDefBlock && blockToken.Type != PipeTableCaptionBlock {
+			} else if blockToken.Type != ParagraphBlock && blockToken.Type != HeadingBlock && blockToken.Type != PipeTableCaptionBlock {
 				resetBlockAt = i
 			}
 		}
 
-		// Check for empty line and collapse all levels until resetBlockAt
 		if (lastBlockType != CodeBlock || potentialReset) && reader.IsEmptyOrWhiteSpace(state) {
 			closeBlockLevelsUntil(state, state, resetBlockAt)
 			continue
+		}
+
+		// Force resets for ReferenceDefBlock if any
+		if lastBlockType == ReferenceDefBlock {
+			closeBlockLevelsUntil(state, state, resetBlockAt)
 		}
 
 		// Check if last block is CodeBlock - then any block level logic should be disabled until we close this block
@@ -307,7 +319,7 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 			resetListPosition := -1
 			for i := len(blockTokens) - 1; i >= 0; i-- {
 				blockToken := blockTokens[i]
-				if blockToken.Type == ListItemBlock && blockLineOffset[i] >= int(state)-lineStart {
+				if blockToken.Type == ListItemBlock && blockLineOffset[i] >= state-lineStart {
 					resetListPosition = i
 				}
 			}
@@ -327,7 +339,7 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 				}
 			}
 
-			if lastBlockType == ParagraphBlock || lastBlockType == HeadingBlock || lastBlockType == PipeTableCaptionBlock {
+			if lastBlockType == ParagraphBlock || lastBlockType == HeadingBlock || lastBlockType == PipeTableCaptionBlock || lastBlockType == ReferenceDefBlock {
 				inlineParts.Push(tokenizer.Range{Start: state, End: lineEnd})
 				break blockParsingLoop
 			}
@@ -346,13 +358,23 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 				continue blockParsingLoop
 			}
 
-			var tokens = []DjotToken{HeadingBlock, QuoteBlock, ListItemBlock, CodeBlock, DivBlock, PipeTableBlock, PipeTableCaptionBlock, ParagraphBlock}
-			// Allow FootnoteDefBlock and ReferenceDefBlock blocks only on top level of the document
-			if lastBlockType == DocumentBlock {
-				tokens = []DjotToken{FootnoteDefBlock, ReferenceDefBlock, HeadingBlock, QuoteBlock, ListItemBlock, CodeBlock, DivBlock, PipeTableBlock, PipeTableCaptionBlock, ParagraphBlock}
-			}
 			// Handle all other block elements - ParagraphBlock must be last item in the sequence
-			for _, tokenType := range tokens {
+			for _, tokenType := range [...]DjotToken{
+				FootnoteDefBlock,
+				ReferenceDefBlock,
+				HeadingBlock,
+				QuoteBlock,
+				ListItemBlock,
+				CodeBlock,
+				DivBlock,
+				PipeTableBlock,
+				PipeTableCaptionBlock,
+				ParagraphBlock,
+			} {
+				// Allow FootnoteDefBlock and ReferenceDefBlock blocks only on top level of the document
+				if lastBlockType != DocumentBlock && (tokenType == FootnoteDefBlock || tokenType == ReferenceDefBlock) {
+					continue
+				}
 				block, next, ok := MatchBlockToken(reader, state, tokenType)
 				if !ok {
 					continue

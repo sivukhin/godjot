@@ -2,7 +2,6 @@ package djot_tokenizer
 
 import (
 	"bytes"
-	"fmt"
 
 	"github.com/sivukhin/godjot/tokenizer"
 )
@@ -120,7 +119,6 @@ func MatchBlockToken(
 			End:        next,
 			Attributes: (&tokenizer.Attributes{}).Set(ReferenceKey, r.Select(startKey, endKey)),
 		}
-		fmt.Printf("footnote token: %#v\n", token)
 		return success(token, next)
 	case ThematicBreakToken:
 		next, ok = r.MaskRepeat(next, ThematicBreakByteMask, 0)

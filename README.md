@@ -21,8 +21,8 @@ type TreeNode[T ~int] struct {
 You can transform AST to HTML with predefined set of rules:
 ```go
 content := djot_parser.NewConversionContext(
-	"html", 
-	djot_parser.DefaultConversionRegistry,
+    "html", 
+    djot_parser.DefaultConversionRegistry,
     map[djot_parser.DjotNode]djot_parser.Conversion{
         /*
             You can overwrite default conversion rules with custom map

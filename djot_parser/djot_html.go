@@ -44,7 +44,7 @@ var DefaultSymbolRegistry = map[string]string{
 }
 
 var DefaultConversionRegistry = map[DjotNode]Conversion{
-	ThematicBreakNode:  func(s ConversionState, n func()) { s.Writer.OpenTag("th").WriteString("\n") },
+	ThematicBreakNode:  func(s ConversionState, n func()) { s.Writer.OpenTag("hr").WriteString("\n") },
 	LineBreakNode:      func(s ConversionState, n func()) { s.Writer.OpenTag("br").WriteString("\n") },
 	TextNode:           func(s ConversionState, n func()) { s.Writer.WriteBytes(s.Node.Text) },
 	SymbolsNode:        func(s ConversionState, n func()) { s.Writer.WriteString(DefaultSymbolRegistry[string(s.Node.Text)]) },

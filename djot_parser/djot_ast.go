@@ -422,6 +422,13 @@ type DjotLocalContext struct {
 	TableProps TableProps
 }
 
+func aggregateAttributes(position *int, attributes *tokenizer.Attributes, list tokenizer.TokenList[djot_tokenizer.DjotToken]) {
+	for *position < len(list) && list[*position].Type == djot_tokenizer.Attribute {
+		attributes.MergeWith(list[*position].Attributes)
+		*position++
+	}
+}
+
 func buildDjotAst(
 	document []byte,
 	context DjotContext,
@@ -558,10 +565,7 @@ func buildDjotAst(
 		for i < len(list) {
 			attributes := &tokenizer.Attributes{}
 			if !localContext.TextNode {
-				for i < len(list) && list[i].Type == djot_tokenizer.Attribute {
-					attributes.MergeWith(list[i].Attributes)
-					i++
-				}
+				aggregateAttributes(&i, attributes, list)
 			}
 			if i == len(list) {
 				break
@@ -572,10 +576,7 @@ func buildDjotAst(
 			nextI := i + openToken.JumpToPair + 1
 			attributes = attributes.MergeWith(openToken.Attributes)
 			if localContext.TextNode {
-				for nextI < len(list) && list[nextI].Type == djot_tokenizer.Attribute {
-					attributes.MergeWith(list[nextI].Attributes)
-					nextI++
-				}
+				aggregateAttributes(&nextI, attributes, list)
 			}
 			if groupElementsPop[i] > 0 {
 				groups = groups[:len(groups)-groupElementsPop[i]]
@@ -762,12 +763,14 @@ func buildDjotAst(
 					nextToken = list[nextI]
 				}
 				if nextToken.Type == djot_tokenizer.LinkUrlInline {
+					attributes.Set(LinkHrefKey, string(normalizeLinkText(document[nextToken.End:list[nextI+nextToken.JumpToPair].Start])))
+					nextI += nextToken.JumpToPair + 1
+					aggregateAttributes(&nextI, attributes, list)
 					*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
 						Type:       LinkNode,
 						Children:   buildDjotAst(document, context, localContext, list[i+1:i+openToken.JumpToPair]),
-						Attributes: attributes.Set(LinkHrefKey, string(normalizeLinkText(document[nextToken.End:list[nextI+nextToken.JumpToPair].Start]))),
+						Attributes: attributes,
 					})
-					nextI += nextToken.JumpToPair + 1
 				} else if nextToken.Type == djot_tokenizer.LinkReferenceInline {
 					reference := normalizeLinkText(document[nextToken.End:list[nextI+nextToken.JumpToPair].Start])
 					if len(reference) == 0 {
@@ -776,12 +779,13 @@ func buildDjotAst(
 					if href := string(normalizeLinkText(context.References[string(reference)])); href != "" {
 						attributes.Set(LinkHrefKey, href).MergeWith(context.ReferenceAttributes[string(reference)])
 					}
+					nextI += nextToken.JumpToPair + 1
+					aggregateAttributes(&nextI, attributes, list)
 					*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
 						Type:       LinkNode,
 						Attributes: attributes,
 						Children:   buildDjotAst(document, context, localContext, list[i+1:i+openToken.JumpToPair]),
 					})
-					nextI += nextToken.JumpToPair + 1
 				} else if attributes.Size() > 0 {
 					*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
 						Type:       SpanNode,

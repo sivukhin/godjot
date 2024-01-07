@@ -43,11 +43,11 @@ func MatchQuotedString(r tokenizer.TextReader, s tokenizer.ReaderState) ([]byte,
 func MatchDjotAttribute(r tokenizer.TextReader, s tokenizer.ReaderState) (*tokenizer.Attributes, tokenizer.ReaderState, bool) {
 	fail := func() (*tokenizer.Attributes, tokenizer.ReaderState, bool) { return nil, 0, false }
 
-	attributes := &tokenizer.Attributes{}
 	next, ok := r.Token(s, "{")
 	if !ok {
 		return fail()
 	}
+	attributes := &tokenizer.Attributes{}
 	comment := false
 	for {
 		next, ok = r.MaskRepeat(next, tokenizer.SpaceNewLineByteMask, 0)

@@ -40,7 +40,7 @@ func BuildInlineDjotTokens(
 					state++
 					continue
 				}
-				openToken := reader.Select(tokenizer.ReaderState(openInline.Start), tokenizer.ReaderState(openInline.End))
+				openToken := reader.Select(openInline.Start, openInline.End)
 				closeToken := reader.Select(state, next)
 				if strings.TrimLeft(openToken, "$") != closeToken {
 					state = next
@@ -48,8 +48,8 @@ func BuildInlineDjotTokens(
 				}
 				tokenStack.CloseLevelAt(tokenizer.Token[DjotToken]{
 					Type:  VerbatimInline ^ tokenizer.Open,
-					Start: int(state),
-					End:   int(next),
+					Start: state,
+					End:   next,
 				})
 				state = next
 				continue
@@ -76,7 +76,7 @@ func BuildInlineDjotTokens(
 				}
 			}
 
-			for _, tokenType := range []DjotToken{
+			for _, tokenType := range [...]DjotToken{
 				RawFormatInline,
 				VerbatimInline,
 				ImageSpanInline,
@@ -101,7 +101,7 @@ func BuildInlineDjotTokens(
 				forbidClose := (tokenType == EmphasisInline && lastInline.Type == EmphasisInline && lastInline.End == int(state)) ||
 					(tokenType == StrongInline && lastInline.Type == StrongInline && lastInline.End == int(state))
 				if !forbidClose && ok && tokenStack.PopForgetUntil(tokenType) {
-					tokenStack.CloseLevelAt(tokenizer.Token[DjotToken]{Type: tokenType ^ tokenizer.Open, Start: int(state), End: int(next)})
+					tokenStack.CloseLevelAt(tokenizer.Token[DjotToken]{Type: tokenType ^ tokenizer.Open, Start: state, End: next})
 					state = next
 					continue inlineParsingLoop
 				}

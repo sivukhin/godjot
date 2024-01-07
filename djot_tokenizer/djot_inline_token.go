@@ -139,7 +139,7 @@ func MatchInlineToken(
 		if !ok {
 			return fail()
 		}
-		if word, ok := r.MaskRepeat(next, AlphaNumericSymbolByteMask, 0); ok && r.HasToken(word, ":") {
+		if word, ok := r.MaskRepeat(next, AlphaNumericSymbolByteMask, 0); ok && r.HasToken1(word, [...]byte{':'}) {
 			return next, true
 		}
 		return fail()
@@ -150,12 +150,12 @@ func MatchInlineToken(
 			return r.Mask(next, SmartSymbolByteMask)
 		}
 		if next, ok := r.Mask(s, SmartSymbolByteMask); ok {
-			if r.HasToken(next, "}") {
+			if r.HasToken1(next, [...]byte{'}'}) {
 				return next + 1, true
 			}
 			return next, true
 		}
-		if next, ok := r.Token(s, "..."); ok {
+		if next, ok := r.Token3(s, [...]byte{'.', '.', '.'}); ok {
 			return next, ok
 		}
 		if next, ok := r.ByteRepeat(s, '-', 2); ok {

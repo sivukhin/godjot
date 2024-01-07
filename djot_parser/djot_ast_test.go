@@ -26,8 +26,6 @@ func printDjot(text string) string {
 const examplesDir = "examples"
 
 func TestDownloadExample(t *testing.T) {
-	t.Skip("manual test for download of djot examples from official docs")
-
 	normalize := func(line string) string {
 		line = strings.Trim(line, "\r\n\t")
 		line = strings.TrimPrefix(line, "<pre><code>")
@@ -60,8 +58,11 @@ func TestDownloadExample(t *testing.T) {
 		htmlExample := html.UnescapeString(normalize(string(docBytes[htmlStart+len(htmlStartToken) : htmlEnd])))
 		docBytes = docBytes[htmlEnd+len(endToken):]
 
-		require.Nil(t, os.WriteFile(path.Join(examplesDir, fmt.Sprintf("%02d.html", example)), []byte(htmlExample), 0660))
-		require.Nil(t, os.WriteFile(path.Join(examplesDir, fmt.Sprintf("%02d.djot", example)), []byte(djotExample), 0660))
+		// Ignore 64th example because it's not self-contained and requires additional definition of table
+		if example != 64 {
+			require.Nil(t, os.WriteFile(path.Join(examplesDir, fmt.Sprintf("%02d.html", example)), []byte(htmlExample), 0660))
+			require.Nil(t, os.WriteFile(path.Join(examplesDir, fmt.Sprintf("%02d.djot", example)), []byte(djotExample), 0660))
+		}
 		example++
 	}
 }

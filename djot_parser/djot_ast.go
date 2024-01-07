@@ -52,6 +52,7 @@ const (
 	ThematicBreakNode
 	DivNode
 	TableNode
+	TableCaptionNode
 	TableRowNode
 	TableHeaderNode
 	TableCellNode
@@ -113,6 +114,8 @@ func (n DjotNode) String() string {
 		return "DivNode"
 	case TableNode:
 		return "TableNode"
+	case TableCaptionNode:
+		return "TableCaptionNode"
 	case TableRowNode:
 		return "TableRowNode"
 	case TableHeaderNode:
@@ -408,6 +411,7 @@ func isTight(list tokenizer.TokenList[djot_tokenizer.DjotToken]) bool {
 }
 
 type TableProps struct {
+	TableIndex int
 	Ignore     bool
 	IsHeader   bool
 	Alignments []string
@@ -439,14 +443,15 @@ func buildDjotAst(
 		i, previous := 0, -1
 		for i < len(list) {
 			openToken := list[i]
-			if openToken.Type != djot_tokenizer.ListItemBlock {
-				activeList, activeListNode, activeListLastItemSparse = ListProps{}, TreeNode[DjotNode]{}, false
-			}
-			if openToken.Type != djot_tokenizer.PipeTableBlock {
-				activeTableProps = TableProps{}
-			}
-
 			switch openToken.Type {
+			case djot_tokenizer.PipeTableCaptionBlock:
+				groupElementsInsert[activeTableProps.TableIndex] = TreeNode[DjotNode]{
+					Type: TableNode,
+					Children: []TreeNode[DjotNode]{{
+						Type:     TableCaptionNode,
+						Children: buildDjotAst(document, context, DjotLocalContext{TextNode: true}, list[i+1:i+openToken.JumpToPair]),
+					}},
+				}
 			case djot_tokenizer.PipeTableBlock:
 				alignments := make([]string, 0)
 				columns := 0
@@ -467,12 +472,15 @@ func buildDjotAst(
 				}
 				if columns != len(activeTableProps.Alignments) {
 					groupElementsInsert[i] = TreeNode[DjotNode]{Type: TableNode}
-					activeTableProps = TableProps{IsHeader: false, Alignments: make([]string, columns)}
+					activeTableProps = TableProps{TableIndex: i, IsHeader: false, Alignments: make([]string, columns)}
 				}
 				if len(alignments) == columns {
 					activeTableProps.Alignments = alignments
+
+					headerActiveTableProps := activeTableProps
+					headerActiveTableProps.IsHeader = true
 					if previous >= 0 {
-						assignedTableProps[previous] = TableProps{IsHeader: true, Alignments: alignments}
+						assignedTableProps[previous] = headerActiveTableProps
 					}
 					assignedTableProps[i] = TableProps{Ignore: true}
 				} else {
@@ -528,6 +536,12 @@ func buildDjotAst(
 					groupElementsPop[i] = 1
 					groupElements = groupElements[:len(groupElements)-1]
 				}
+			}
+			if openToken.Type != djot_tokenizer.ListItemBlock {
+				activeList, activeListNode, activeListLastItemSparse = ListProps{}, TreeNode[DjotNode]{}, false
+			}
+			if openToken.Type != djot_tokenizer.PipeTableBlock {
+				activeTableProps = TableProps{}
 			}
 			previous = i
 			i += openToken.JumpToPair + 1

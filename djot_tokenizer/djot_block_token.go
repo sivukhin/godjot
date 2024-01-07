@@ -174,6 +174,11 @@ func MatchBlockToken(
 			return fail()
 		}
 		return success(tokenizer.Token[DjotToken]{Type: tokenType, Start: initialState, End: next}, next)
+	case PipeTableCaptionBlock:
+		if next, ok = r.Token(next, "^ "); !ok {
+			return fail()
+		}
+		return success(tokenizer.Token[DjotToken]{Type: tokenType, Start: initialState, End: next}, next)
 	default:
 		tokenizer.Assertf(false, "unexpected djot block token type: %v", tokenType)
 		return fail()

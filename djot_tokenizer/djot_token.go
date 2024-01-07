@@ -26,6 +26,7 @@ const (
 	FootnoteDefBlock
 	ParagraphBlock
 	ThematicBreakToken
+	PipeTableCaptionBlock
 
 	Attribute
 	Padding
@@ -79,6 +80,8 @@ func (t DjotToken) String() string {
 		return "ParagraphBlock"
 	case ThematicBreakToken:
 		return "ThematicBreakToken"
+	case PipeTableCaptionBlock:
+		return "PipeTableCaptionBlock"
 	case Attribute:
 		return "Attribute"
 	case Padding:

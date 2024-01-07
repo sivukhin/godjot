@@ -251,7 +251,7 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 				}
 				state = next
 				resetBlockAt = i
-			} else if blockToken.Type != ParagraphBlock && blockToken.Type != HeadingBlock && blockToken.Type != ReferenceDefBlock {
+			} else if blockToken.Type != ParagraphBlock && blockToken.Type != HeadingBlock && blockToken.Type != ReferenceDefBlock && blockToken.Type != PipeTableCaptionBlock {
 				resetBlockAt = i
 			}
 		}
@@ -327,7 +327,7 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 				}
 			}
 
-			if lastBlockType == ParagraphBlock || lastBlockType == HeadingBlock {
+			if lastBlockType == ParagraphBlock || lastBlockType == HeadingBlock || lastBlockType == PipeTableCaptionBlock {
 				inlineParts.Push(tokenizer.Range{Start: state, End: lineEnd})
 				break blockParsingLoop
 			}
@@ -346,15 +346,18 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 				continue blockParsingLoop
 			}
 
-			var tokens = []DjotToken{HeadingBlock, QuoteBlock, ListItemBlock, CodeBlock, DivBlock, PipeTableBlock, ParagraphBlock}
+			var tokens = []DjotToken{HeadingBlock, QuoteBlock, ListItemBlock, CodeBlock, DivBlock, PipeTableBlock, PipeTableCaptionBlock, ParagraphBlock}
 			// Allow FootnoteDefBlock and ReferenceDefBlock blocks only on top level of the document
 			if lastBlockType == DocumentBlock {
-				tokens = []DjotToken{FootnoteDefBlock, ReferenceDefBlock, HeadingBlock, QuoteBlock, ListItemBlock, CodeBlock, DivBlock, PipeTableBlock, ParagraphBlock}
+				tokens = []DjotToken{FootnoteDefBlock, ReferenceDefBlock, HeadingBlock, QuoteBlock, ListItemBlock, CodeBlock, DivBlock, PipeTableBlock, PipeTableCaptionBlock, ParagraphBlock}
 			}
 			// Handle all other block elements - ParagraphBlock must be last item in the sequence
 			for _, tokenType := range tokens {
 				block, next, ok := MatchBlockToken(reader, state, tokenType)
 				if !ok {
+					continue
+				}
+				if tokenType == PipeTableCaptionBlock && (len(finalTokens) == 0 || finalTokens[len(finalTokens)-1].Type != PipeTableBlock^tokenizer.Open) {
 					continue
 				}
 				openBlockLevel(block)

@@ -162,6 +162,23 @@ func MatchInlineToken(
 			return next, ok
 		}
 		return fail()
+	case PipeTableSeparator:
+		next, ok := r.Token(s, "|")
+		if !ok {
+			return fail()
+		}
+		return r.MaskRepeat(next, tokenizer.SpaceByteMask, 0)
+	case PipeTableSeparator ^ tokenizer.Open:
+		s, ok := r.MaskRepeat(s, tokenizer.SpaceByteMask, 0)
+		tokenizer.Assertf(ok, "MaskRepeat must match because minCount is zero")
+
+		if next, ok := r.Token(s, "|"); ok {
+			if r.IsEmptyOrWhiteSpace(next) {
+				return next, true
+			}
+			return s, true
+		}
+		return fail()
 	default:
 		tokenizer.Assertf(false, "unexpected djot inline token type: %v(%d)", tokenType, tokenType)
 		return fail()

@@ -59,8 +59,8 @@ func BuildInlineDjotTokens(
 			if attributes, next, ok := MatchDjotAttribute(reader, state); ok {
 				tokenStack.LastLevel().Push(tokenizer.Token[DjotToken]{
 					Type:       Attribute,
-					Start:      int(state),
-					End:        int(next),
+					Start:      state,
+					End:        next,
 					Attributes: attributes,
 				})
 				state = next
@@ -70,7 +70,7 @@ func BuildInlineDjotTokens(
 			// EscapedSymbolInline / SmartSymbolInline is non-paired tokens - so we should treat it separately
 			for _, tokenType := range []DjotToken{EscapedSymbolInline, SmartSymbolInline} {
 				if next, ok := MatchInlineToken(reader, state, tokenType); ok {
-					tokenStack.LastLevel().Push(tokenizer.Token[DjotToken]{Type: tokenType, Start: int(state), End: int(next)})
+					tokenStack.LastLevel().Push(tokenizer.Token[DjotToken]{Type: tokenType, Start: state, End: next})
 					state = next
 					continue inlineParsingLoop
 				}
@@ -93,6 +93,7 @@ func BuildInlineDjotTokens(
 				FootnoteReferenceInline,
 				SpanInline,
 				SymbolsInline,
+				PipeTableSeparator,
 			} {
 				// Closing tokens take precedence because of greedy nature of parsing
 				next, ok := MatchInlineToken(reader, state, tokenType^tokenizer.Open)
@@ -267,7 +268,7 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 			if ok && lastBlock.PrefixLength(document, '`') <= token.PrefixLength(document, '`') && token.Attributes.Size() == 0 {
 				closeBlockLevelsUntil(token.Start, token.End, len(blockTokens)-2)
 			} else {
-				inlineParts = append(inlineParts, tokenizer.Range{Start: int(state), End: lineEnd})
+				inlineParts = append(inlineParts, tokenizer.Range{Start: state, End: lineEnd})
 			}
 			continue
 		}
@@ -315,7 +316,7 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 			// Paragraph too - but there are subtle rules for list item handling, so we can't break for paragraphs here
 			if listItem, next, ok := MatchBlockToken(reader, state, ListItemBlock); ok && lastBlockType != HeadingBlock && lastBlockType != CodeBlock {
 				if resetListPosition != -1 {
-					closeBlockLevelsUntil(int(state), int(state), resetListPosition-1)
+					closeBlockLevelsUntil(state, state, resetListPosition-1)
 				}
 				// If we found list item which fits some previously defined hierarchy - then we will add it unconditionally
 				if resetListPosition != -1 || lastBlockType != ParagraphBlock && lastBlockType != HeadingBlock && lastBlockType != CodeBlock {
@@ -327,7 +328,12 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 			}
 
 			if lastBlockType == ParagraphBlock || lastBlockType == HeadingBlock {
-				inlineParts.Push(tokenizer.Range{Start: int(state), End: lineEnd})
+				inlineParts.Push(tokenizer.Range{Start: state, End: lineEnd})
+				break blockParsingLoop
+			}
+			if lastBlockType == PipeTableBlock {
+				inlineParts.Push(tokenizer.Range{Start: state, End: lineEnd})
+				closeBlockLevelsUntil(lineEnd, lineEnd, len(blockTokens)-2)
 				break blockParsingLoop
 			}
 
@@ -336,7 +342,7 @@ func BuildDjotTokens(document []byte) tokenizer.TokenList[DjotToken] {
 			}
 
 			if resetListPosition != -1 {
-				closeBlockLevelsUntil(int(state), int(state), resetListPosition-1)
+				closeBlockLevelsUntil(state, state, resetListPosition-1)
 				continue blockParsingLoop
 			}
 

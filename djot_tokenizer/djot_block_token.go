@@ -158,11 +158,17 @@ func MatchBlockToken(
 		}
 		return fail()
 	case PipeTableBlock:
-		// todo (sivukhin, 2023-10-28): check that line ends with another pipe
-		if next, ok = r.Token(next, "|"); !ok {
+		if next >= len(r) || r[next] != '|' {
 			return fail()
 		}
-		return success(tokenizer.Token[DjotToken]{Type: tokenType, Start: initialState, End: next}, next)
+		last := len(r) - 1
+		for last > next && r.HasMask(last, tokenizer.SpaceNewLineByteMask) {
+			last--
+		}
+		if r[last] != '|' {
+			return fail()
+		}
+		return success(tokenizer.Token[DjotToken]{Type: tokenType, Start: initialState, End: initialState}, initialState)
 	case ParagraphBlock:
 		if r.IsEmpty(next) {
 			return fail()

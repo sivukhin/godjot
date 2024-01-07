@@ -44,22 +44,32 @@ var DefaultSymbolRegistry = map[string]string{
 }
 
 var DefaultConversionRegistry = map[DjotNode]Conversion{
-	ThematicBreakNode:  func(s ConversionState, n func()) { s.Writer.OpenTag("hr").WriteString("\n") },
-	LineBreakNode:      func(s ConversionState, n func()) { s.Writer.OpenTag("br").WriteString("\n") },
-	TextNode:           func(s ConversionState, n func()) { s.Writer.WriteBytes(s.Node.Text) },
-	SymbolsNode:        func(s ConversionState, n func()) { s.Writer.WriteString(DefaultSymbolRegistry[string(s.Node.Text)]) },
-	InsertNode:         func(s ConversionState, n func()) { s.InlineNodeConverter("ins", n) },
-	DeleteNode:         func(s ConversionState, n func()) { s.InlineNodeConverter("del", n) },
-	SuperscriptNode:    func(s ConversionState, n func()) { s.InlineNodeConverter("sup", n) },
-	SubscriptNode:      func(s ConversionState, n func()) { s.InlineNodeConverter("sub", n) },
-	HighlightedNode:    func(s ConversionState, n func()) { s.InlineNodeConverter("mark", n) },
-	EmphasisNode:       func(s ConversionState, n func()) { s.InlineNodeConverter("em", n) },
-	StrongNode:         func(s ConversionState, n func()) { s.InlineNodeConverter("strong", n) },
-	ParagraphNode:      func(s ConversionState, n func()) { s.InlineNodeConverter("p", n).WriteString("\n") },
-	ImageNode:          func(s ConversionState, n func()) { s.StandaloneNodeConverter("img") },
-	LinkNode:           func(s ConversionState, n func()) { s.InlineNodeConverter("a", n) },
-	SpanNode:           func(s ConversionState, n func()) { s.InlineNodeConverter("span", n) },
-	DivNode:            func(s ConversionState, n func()) { s.BlockNodeConverter("div", n) },
+	ThematicBreakNode: func(s ConversionState, n func()) { s.Writer.OpenTag("hr").WriteString("\n") },
+	LineBreakNode:     func(s ConversionState, n func()) { s.Writer.OpenTag("br").WriteString("\n") },
+	TextNode:          func(s ConversionState, n func()) { s.Writer.WriteBytes(s.Node.Text) },
+	SymbolsNode:       func(s ConversionState, n func()) { s.Writer.WriteString(DefaultSymbolRegistry[string(s.Node.Text)]) },
+	InsertNode:        func(s ConversionState, n func()) { s.InlineNodeConverter("ins", n) },
+	DeleteNode:        func(s ConversionState, n func()) { s.InlineNodeConverter("del", n) },
+	SuperscriptNode:   func(s ConversionState, n func()) { s.InlineNodeConverter("sup", n) },
+	SubscriptNode:     func(s ConversionState, n func()) { s.InlineNodeConverter("sub", n) },
+	HighlightedNode:   func(s ConversionState, n func()) { s.InlineNodeConverter("mark", n) },
+	EmphasisNode:      func(s ConversionState, n func()) { s.InlineNodeConverter("em", n) },
+	StrongNode:        func(s ConversionState, n func()) { s.InlineNodeConverter("strong", n) },
+	ParagraphNode:     func(s ConversionState, n func()) { s.InlineNodeConverter("p", n).WriteString("\n") },
+	ImageNode:         func(s ConversionState, n func()) { s.StandaloneNodeConverter("img") },
+	LinkNode:          func(s ConversionState, n func()) { s.InlineNodeConverter("a", n) },
+	SpanNode:          func(s ConversionState, n func()) { s.InlineNodeConverter("span", n) },
+	DivNode:           func(s ConversionState, n func()) { s.BlockNodeConverter("div", n) },
+	TableNode:         func(s ConversionState, n func()) { s.BlockNodeConverter("table", n) },
+	TableRowNode:      func(s ConversionState, n func()) { s.BlockNodeConverter("tr", n) },
+	TableHeaderNode: func(s ConversionState, n func()) {
+		s.InlineNodeConverter("th", n)
+		s.Writer.WriteString("\n")
+	},
+	TableCellNode: func(s ConversionState, n func()) {
+		s.InlineNodeConverter("td", n)
+		s.Writer.WriteString("\n")
+	},
 	TaskListNode:       func(s ConversionState, n func()) { s.BlockNodeConverter("ul", n) },
 	DefinitionListNode: func(s ConversionState, n func()) { s.BlockNodeConverter("dl", n) },
 	UnorderedListNode:  func(s ConversionState, n func()) { s.BlockNodeConverter("ul", n) },

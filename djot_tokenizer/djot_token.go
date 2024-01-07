@@ -48,6 +48,7 @@ const (
 	SymbolsInline
 	RawFormatInline
 	SmartSymbolInline
+	PipeTableSeparator
 )
 
 func (t DjotToken) String() string {
@@ -118,6 +119,8 @@ func (t DjotToken) String() string {
 		return "RawFormatInline"
 	case SmartSymbolInline:
 		return "SmartSymbolInline"
+	case PipeTableSeparator:
+		return "PipeTableSeparator"
 	}
 	if t&1 == 0 {
 		return (t ^ 1).String() + "Close"

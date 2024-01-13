@@ -150,9 +150,11 @@ func NewConversionContext(format string, converters ...map[DjotNode]Conversion) 
 	}
 }
 
-func (context ConversionContext) ConvertDjotToHtml(nodes ...TreeNode[DjotNode]) string {
-	builder := html_writer.HtmlWriter{}
-	context.convertDjotToHtml(&builder, nodes...)
+func (context ConversionContext) ConvertDjotToHtml(
+	builder *html_writer.HtmlWriter,
+	nodes ...TreeNode[DjotNode],
+) string {
+	context.convertDjotToHtml(builder, nodes...)
 	return builder.String()
 }
 

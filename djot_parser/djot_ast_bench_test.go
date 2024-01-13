@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/sivukhin/godjot/djot_tokenizer"
+	"github.com/sivukhin/godjot/html_writer"
 )
 
 //go:embed bench/sample01.djot
@@ -56,7 +57,7 @@ func BenchmarkConvertDjotToHtml(b *testing.B) {
 	ast := BuildDjotAst(sample01)
 	context := NewConversionContext("html", DefaultConversionRegistry)
 	for i := 0; i < b.N; i++ {
-		html := context.ConvertDjotToHtml(ast...)
+		html := context.ConvertDjotToHtml(&html_writer.HtmlWriter{}, ast...)
 		if len(html) < 100 {
 			b.Fail()
 		}

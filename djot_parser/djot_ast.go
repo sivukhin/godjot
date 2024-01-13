@@ -947,7 +947,6 @@ func buildDjotAst(
 		}
 	}
 	if len(footnotes) > 0 {
-		fmt.Printf("footnotes: %#v\n", footnotes)
 		nodes = append(nodes, TreeNode[DjotNode]{
 			Type:       SectionNode,
 			Attributes: (&tokenizer.Attributes{}).Set("role", "doc-endnotes"),

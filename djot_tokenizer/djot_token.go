@@ -6,10 +6,10 @@ type DjotToken int
 
 const (
 	DivClassKey    = "class"
-	CodeLangKey    = "CodeLangKey"
-	InlineMathKey  = "InlineMathKey"
-	DisplayMathKey = "DisplayMathKey"
-	ReferenceKey   = "ReferenceKey"
+	CodeLangKey    = "$CodeLangKey"
+	InlineMathKey  = "$InlineMathKey"
+	DisplayMathKey = "$DisplayMathKey"
+	ReferenceKey   = "$ReferenceKey"
 )
 
 const (

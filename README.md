@@ -37,7 +37,7 @@ content := djot_parser.NewConversionContext(
             }
         */
     }
-).ConvertDjotToHtml(ast...)
+).ConvertDjotToHtml(&html_writer.HtmlWriter{}, ast...)
 ```
 
 This implementation passes all examples provided in the [spec](https://htmlpreview.github.io/?https://github.com/jgm/djot/blob/master/doc/syntax.html) but can diverge from original javascript implementation in some cases.

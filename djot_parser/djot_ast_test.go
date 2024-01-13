@@ -14,13 +14,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/sivukhin/godjot/djot_tokenizer"
+	"github.com/sivukhin/godjot/html_writer"
 )
 
 func printDjot(text string) string {
 	document := []byte(text)
 	ast := BuildDjotAst(document)
 	fmt.Printf("ast: %v\n", ast)
-	return NewConversionContext("html", DefaultConversionRegistry).ConvertDjotToHtml(ast...)
+	return NewConversionContext("html", DefaultConversionRegistry).ConvertDjotToHtml(&html_writer.HtmlWriter{}, ast...)
 }
 
 const examplesDir = "examples"

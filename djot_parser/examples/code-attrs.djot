@@ -1,3 +1,5 @@
+paragraph
+
 {.noline}
 ``` go
 x := 1

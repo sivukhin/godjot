@@ -100,7 +100,7 @@ var DefaultConversionRegistry = map[DjotNode]Conversion{
 	DocumentNode:       func(s ConversionState, n func(c Children)) { n(nil) },
 	FootnoteDefNode:    func(s ConversionState, n func(c Children)) { n(nil) },
 	CodeNode: func(s ConversionState, n func(c Children)) {
-		s.Writer.OpenTag("pre", s.Node.Attributes.Entries()...).OpenTag("code")
+		s.Writer.OpenTag("pre").OpenTag("code", s.Node.Attributes.Entries()...)
 		n(nil)
 		s.Writer.CloseTag("code").CloseTag("pre").WriteString("\n")
 	},

@@ -240,7 +240,10 @@ func BuildDjotContext(document []byte, list tokenizer.TokenList[djot_tokenizer.D
 			footnoteId++
 		case djot_tokenizer.HeadingBlock:
 			headerId := createSectionId(string(selectText(document, list[i+1:i+openToken.JumpToPair])))
-			context.References[headerId] = []byte("#" + headerId)
+			// don't overwrite reference if any
+			if _, ok := context.References[headerId]; !ok {
+				context.References[headerId] = []byte("#" + headerId)
+			}
 		}
 		i++
 	}
@@ -633,6 +636,9 @@ func buildDjotAst(
 						Attributes: attributes.Set(RawBlockFormatKey, suffix),
 					})
 				} else {
+					if lang != "" {
+						attributes.Append(djot_tokenizer.DjotAttributeClassKey, "language-"+lang)
+					}
 					*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
 						Type:       CodeNode,
 						Children:   internal,

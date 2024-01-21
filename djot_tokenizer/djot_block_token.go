@@ -63,7 +63,7 @@ func MatchBlockToken(
 		var attributeKey string
 		switch tokenType {
 		case DivBlock:
-			symbol, attributeKey = ':', DivClassKey
+			symbol, attributeKey = ':', DjotAttributeClassKey
 		case CodeBlock:
 			symbol, attributeKey = '`', CodeLangKey
 		}

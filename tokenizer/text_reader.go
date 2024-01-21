@@ -13,7 +13,7 @@ func NewByteMask(set []byte) ByteMask {
 	}
 	return mask
 }
-func (m ByteMask) Has(b byte) bool {
+func (m *ByteMask) Has(b byte) bool {
 	return m[b/64]&(1<<uint64(b&63)) > 0
 }
 
@@ -64,6 +64,7 @@ func (r TextReader) Mask(s ReaderState, mask ByteMask) (ReaderState, bool) {
 	}
 	return 0, false
 }
+
 func (r TextReader) Token1(s ReaderState, token [1]byte) (ReaderState, bool) {
 	if r.HasToken1(s, token) {
 		return s + 1, true
@@ -113,18 +114,11 @@ func (r TextReader) ByteRepeat(s ReaderState, b byte, minCount int) (ReaderState
 	return 0, false
 }
 func (r TextReader) MaskRepeat(s ReaderState, mask ByteMask, minCount int) (ReaderState, bool) {
-	for !r.IsEmpty(s) {
-		if r.HasMask(s, mask) {
-			s++
-			minCount--
-		} else {
-			break
-		}
+	for r.HasMask(s, mask) {
+		s++
+		minCount--
 	}
-	if minCount <= 0 {
-		return s, true
-	}
-	return 0, false
+	return s, minCount <= 0
 }
 
 func (r TextReader) IsEmptyOrWhiteSpace(s ReaderState) bool {
@@ -132,7 +126,7 @@ func (r TextReader) IsEmptyOrWhiteSpace(s ReaderState) bool {
 	return r.IsEmpty(next)
 }
 func (r TextReader) IsEmpty(s ReaderState) bool {
-	return s >= len(r) || s < 0
+	return s >= len(r)
 }
 func (r TextReader) HasToken(s ReaderState, token string) bool {
 	if len(token) == 1 {

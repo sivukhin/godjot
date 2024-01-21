@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"sort"
 	"strings"
 	"testing"
 
@@ -15,6 +16,7 @@ import (
 
 	"github.com/sivukhin/godjot/djot_tokenizer"
 	"github.com/sivukhin/godjot/html_writer"
+	"github.com/sivukhin/godjot/tokenizer"
 )
 
 func printDjot(text string) string {
@@ -66,6 +68,29 @@ func TestDownloadExample(t *testing.T) {
 		}
 		example++
 	}
+}
+
+func TestStartSymbol(t *testing.T) {
+	dir, err := os.ReadDir(examplesDir)
+	require.Nil(t, err)
+	for _, entry := range dir {
+		name := entry.Name()
+		example, ok := strings.CutSuffix(name, ".html")
+		if !ok {
+			continue
+		}
+		djotExample, err := os.ReadFile(path.Join(examplesDir, fmt.Sprintf("%v.djot", example)))
+		require.Nil(t, err)
+		_ = BuildDjotAst(djotExample)
+	}
+	symbols := make([]byte, 0)
+	for s := range djot_tokenizer.StartSymbols {
+		if !tokenizer.SpaceNewLineByteMask.Has(s) {
+			symbols = append(symbols, s)
+		}
+	}
+	sort.Slice(symbols, func(i, j int) bool { return symbols[i] < symbols[j] })
+	t.Logf("%#v", string(symbols))
 }
 
 func TestDjotDocExample(t *testing.T) {

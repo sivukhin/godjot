@@ -5,6 +5,7 @@ import "fmt"
 type DjotToken int
 
 const (
+	DivClassKey    = "$DivClassKey"
 	CodeLangKey    = "$CodeLangKey"
 	InlineMathKey  = "$InlineMathKey"
 	DisplayMathKey = "$DisplayMathKey"
@@ -30,13 +31,13 @@ const (
 	Attribute
 	Padding
 
+	RawFormatInline
 	VerbatimInline
-	EscapedSymbolInline
-	SpanInline
 	ImageSpanInline
 	LinkUrlInline
 	LinkReferenceInline
 	AutolinkInline
+	EscapedSymbolInline
 	EmphasisInline
 	StrongInline
 	HighlightedInline
@@ -45,10 +46,10 @@ const (
 	InsertInline
 	DeleteInline
 	FootnoteReferenceInline
+	SpanInline
 	SymbolsInline
-	RawFormatInline
-	SmartSymbolInline
 	PipeTableSeparator
+	SmartSymbolInline
 )
 
 func (t DjotToken) String() string {

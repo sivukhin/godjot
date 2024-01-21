@@ -76,6 +76,15 @@ func BuildInlineDjotTokens(
 				}
 			}
 
+			current, ok := reader.Peek(state)
+			if !ok {
+				continue
+			}
+			if !InlineTokenStartSymbol.Has(current) {
+				state++
+				continue
+			}
+
 			for _, tokenType := range [...]DjotToken{
 				RawFormatInline,
 				VerbatimInline,
@@ -98,8 +107,8 @@ func BuildInlineDjotTokens(
 				// Closing tokens take precedence because of greedy nature of parsing
 				next, ok := MatchInlineToken(reader, state, tokenType^tokenizer.Open)
 				// EmphasisInline / StrongInline elements must contain something in between of open and close tokens
-				forbidClose := (tokenType == EmphasisInline && lastInline.Type == EmphasisInline && lastInline.End == int(state)) ||
-					(tokenType == StrongInline && lastInline.Type == StrongInline && lastInline.End == int(state))
+				forbidClose := (tokenType == EmphasisInline && lastInline.Type == EmphasisInline && lastInline.End == state) ||
+					(tokenType == StrongInline && lastInline.Type == StrongInline && lastInline.End == state)
 				if !forbidClose && ok && tokenStack.PopForgetUntil(tokenType) {
 					tokenStack.CloseLevelAt(tokenizer.Token[DjotToken]{Type: tokenType ^ tokenizer.Open, Start: state, End: next})
 					state = next
@@ -118,10 +127,10 @@ func BuildInlineDjotTokens(
 				if ok {
 					var attributes tokenizer.Attributes
 					token := reader[state:next]
-					if tokenType == VerbatimInline && bytes.HasPrefix(token, []byte("$`")) {
-						attributes.Set(InlineMathKey, "")
-					} else if tokenType == VerbatimInline && bytes.HasPrefix(token, []byte("$$`")) {
+					if tokenType == VerbatimInline && bytes.HasPrefix(token, []byte("$$")) {
 						attributes.Set(DisplayMathKey, "")
+					} else if tokenType == VerbatimInline && bytes.HasPrefix(token, []byte("$")) {
+						attributes.Set(InlineMathKey, "")
 					}
 					tokenStack.OpenLevelAt(tokenizer.Token[DjotToken]{
 						Type:       tokenType,

@@ -67,6 +67,11 @@ func BuildInlineDjotTokens(
 				continue
 			}
 
+			if !InlineTokenStartSymbol.Has(reader[state]) {
+				state++
+				continue
+			}
+
 			// EscapedSymbolInline / SmartSymbolInline is non-paired tokens - so we should treat it separately
 			for _, tokenType := range []DjotToken{EscapedSymbolInline, SmartSymbolInline} {
 				if next, ok := MatchInlineToken(reader, state, tokenType); ok {
@@ -74,15 +79,6 @@ func BuildInlineDjotTokens(
 					state = next
 					continue inlineParsingLoop
 				}
-			}
-
-			current, ok := reader.Peek(state)
-			if !ok {
-				continue
-			}
-			if !InlineTokenStartSymbol.Has(current) {
-				state++
-				continue
 			}
 
 			for _, tokenType := range [...]DjotToken{

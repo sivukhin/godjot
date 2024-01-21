@@ -14,7 +14,7 @@ type TreeNode[T ~int] struct {
     Type       T                     // one of DjotNode options
     Attributes *tokenizer.Attributes // string attributes of node
     Children   []TreeNode[T]         // list of child
-    Text       []byte                // content of text nodes: TextNode / SymbolsNode / VerbatimNode
+    Text       []byte                // not nil only for TextNode
 }
 ```
 

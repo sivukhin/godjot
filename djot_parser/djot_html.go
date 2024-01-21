@@ -49,7 +49,7 @@ var DefaultConversionRegistry = map[DjotNode]Conversion{
 	LineBreakNode:     func(s ConversionState, n func(c Children)) { s.Writer.OpenTag("br").WriteString("\n") },
 	TextNode:          func(s ConversionState, n func(c Children)) { s.Writer.WriteBytes(s.Node.Text) },
 	SymbolsNode: func(s ConversionState, n func(c Children)) {
-		s.Writer.WriteString(DefaultSymbolRegistry[string(s.Node.Text)])
+		s.Writer.WriteString(DefaultSymbolRegistry[string(s.Node.FullText())])
 	},
 	InsertNode:       func(s ConversionState, n func(c Children)) { s.InlineNodeConverter("ins", n) },
 	DeleteNode:       func(s ConversionState, n func(c Children)) { s.InlineNodeConverter("del", n) },
@@ -108,19 +108,19 @@ var DefaultConversionRegistry = map[DjotNode]Conversion{
 		if _, ok := s.Node.Attributes.TryGet(djot_tokenizer.InlineMathKey); ok {
 			s.Writer.InTag("span", tokenizer.AttributeEntry{Key: "class", Value: "math inline"})(func() {
 				s.Writer.WriteString("\\(")
-				s.Writer.WriteBytes(s.Node.Text)
+				n(nil)
 				s.Writer.WriteString("\\)")
 			})
 		} else if _, ok := s.Node.Attributes.TryGet(djot_tokenizer.DisplayMathKey); ok {
 			s.Writer.InTag("span", tokenizer.AttributeEntry{Key: "class", Value: "math display"})(func() {
 				s.Writer.WriteString("\\[")
-				s.Writer.WriteBytes(s.Node.Text)
+				n(nil)
 				s.Writer.WriteString("\\]")
 			})
 		} else if rawFormat := s.Node.Attributes.Get(RawInlineFormatKey); rawFormat == s.Format {
-			s.Writer.WriteBytes(s.Node.Text)
+			n(nil)
 		} else {
-			s.Writer.InTag("code")(func() { s.Writer.WriteBytes(s.Node.Text) })
+			s.Writer.InTag("code")(func() { n(nil) })
 		}
 	},
 	HeadingNode: func(s ConversionState, n func(c Children)) {

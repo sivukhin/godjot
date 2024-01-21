@@ -670,8 +670,11 @@ func buildDjotAst(
 				})
 			case djot_tokenizer.SymbolsInline:
 				*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
-					Type:       SymbolsNode,
-					Text:       document[openToken.End:closeToken.Start],
+					Type: SymbolsNode,
+					Children: []TreeNode[DjotNode]{{
+						Type: TextNode,
+						Text: document[openToken.End:closeToken.Start],
+					}},
 					Attributes: attributes,
 				})
 			case djot_tokenizer.AutolinkInline:
@@ -697,15 +700,17 @@ func buildDjotAst(
 					nextI += rawFormatOpen.JumpToPair + 1
 				}
 				*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
-					Type:       VerbatimNode,
-					Text:       text,
+					Type: VerbatimNode,
+					Children: []TreeNode[DjotNode]{{
+						Type: TextNode,
+						Text: text,
+					}},
 					Attributes: attributes,
 				})
 			case djot_tokenizer.FootnoteReferenceInline:
 				footnoteId := context.FootnoteId[string(document[openToken.End:closeToken.Start])]
 				*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
 					Type:     LinkNode,
-					Text:     []byte(fmt.Sprintf("#fn%v", footnoteId)),
 					Children: []TreeNode[DjotNode]{{Type: SuperscriptNode, Children: []TreeNode[DjotNode]{{Type: TextNode, Text: []byte(fmt.Sprintf("%v", footnoteId))}}}},
 					Attributes: attributes.
 						Set(IdKey, fmt.Sprintf("fnref%v", footnoteId)).

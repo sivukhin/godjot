@@ -6,7 +6,7 @@
 
 You can install **godjot** as a standalone binary:
 ```shell
-$> go install go install github.com/sivukhin/godjot@latest
+$> go install github.com/sivukhin/godjot@latest
 $> echo '*Hello*, _world_' | godjot
 <p><strong>Hello</strong>, <em>world</em></p>
 ```

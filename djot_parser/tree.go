@@ -17,13 +17,18 @@ func (n TreeNode[T]) Traverse(f func(node TreeNode[T])) {
 }
 
 func (n TreeNode[T]) FullText() []byte {
+	textNodes := 0
 	var text []byte
 	n.Traverse(func(node TreeNode[T]) {
-		if len(text) == 0 {
-			text = node.Text
-		} else if len(node.Text) > 0 {
-			text = append(text, node.Text...)
+		textNodes += 1
+		if textNodes == 1 {
+			text = node.Text // optimization to avoid unnecessary allocations
+			return
 		}
+		if textNodes == 2 {
+			text = append([]byte{}, text...)
+		}
+		text = append(text, node.Text...)
 	})
 	return text
 }

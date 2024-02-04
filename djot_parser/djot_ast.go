@@ -239,7 +239,7 @@ func BuildDjotContext(document []byte, list tokenizer.TokenList[djot_tokenizer.D
 			context.FootnoteId[reference] = footnoteId
 			footnoteId++
 		case djot_tokenizer.HeadingBlock:
-			headerId := createSectionId(string(selectText(document, list[i+1:i+openToken.JumpToPair])))
+			headerId := CreateSectionId(string(selectText(document, list[i+1:i+openToken.JumpToPair])))
 			// don't overwrite reference if any
 			if _, ok := context.References[headerId]; !ok {
 				context.References[headerId] = []byte("#" + headerId)
@@ -317,7 +317,7 @@ func selectText(document []byte, list tokenizer.TokenList[djot_tokenizer.DjotTok
 	return text
 }
 
-func createSectionId(s string) string {
+func CreateSectionId(s string) string {
 	id := strings.Builder{}
 	hasDash := false
 	for _, c := range s {
@@ -512,7 +512,7 @@ func buildDjotAst(
 				}
 				groupElementsPop[i] = pop
 				sectionNode := TreeNode[DjotNode]{Type: SectionNode, Attributes: (&tokenizer.Attributes{}).Set(
-					"id", createSectionId(string(selectText(document, list[i+1:i+openToken.JumpToPair]))),
+					"id", CreateSectionId(string(selectText(document, list[i+1:i+openToken.JumpToPair]))),
 				)}
 				groupElementsInsert[i] = sectionNode
 				groupElements = append(groupElements, sectionNode)

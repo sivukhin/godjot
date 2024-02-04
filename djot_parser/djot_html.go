@@ -138,8 +138,8 @@ func NewConversionContext(format string, converters ...map[DjotNode]Conversion) 
 	if len(converters) == 0 {
 		converters = []map[DjotNode]Conversion{DefaultConversionRegistry}
 	}
-	registry := converters[0]
-	for i := 1; i < len(converters); i++ {
+	registry := make(map[DjotNode]Conversion)
+	for i := 0; i < len(converters); i++ {
 		for node, conversion := range converters[i] {
 			registry[node] = conversion
 		}

@@ -262,7 +262,7 @@ type QuoteDirection int
 
 const (
 	OpenQuote  QuoteDirection = +1
-	CloseQuote                = -1
+	CloseQuote QuoteDirection = -1
 )
 
 func detectQuoteDirection(document []byte, position int) QuoteDirection {

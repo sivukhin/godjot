@@ -1,0 +1,18 @@
+run:
+  go: '1.22'
+linters:
+  enable:
+    - govet
+    - typecheck
+    - unused
+    - gofmt
+    - whitespace
+    - gosimple
+    - exportloopref
+    - nilerr
+    - goimports
+    - staticcheck
+    - ineffassign
+    - errcheck
+  disable:
+    - depguard

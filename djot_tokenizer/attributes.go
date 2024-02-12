@@ -24,7 +24,6 @@ func MatchQuotedString(r tokenizer.TextReader, s tokenizer.ReaderState) ([]byte,
 		tokenizer.Assertf(ok, "MaskRepeat must match because minCount is zero")
 
 		value = append(value, r[start:next]...)
-		start = next
 		if endString, ok := r.Token(next, "\""); ok {
 			return value, endString, true
 		} else if escape, ok := r.Token(next, "\\"); ok {

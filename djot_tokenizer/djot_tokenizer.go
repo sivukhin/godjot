@@ -132,7 +132,7 @@ func BuildInlineDjotTokens(
 						Type:       tokenType,
 						Start:      state,
 						End:        next,
-						Attributes: &attributes,
+						Attributes: attributes,
 					})
 					state = next
 					continue inlineParsingLoop

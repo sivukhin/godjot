@@ -8,23 +8,27 @@ type Attributes struct {
 
 type AttributeEntry struct{ Key, Value string }
 
-func (a *Attributes) Size() int {
-	if a == nil {
-		return 0
+func NewAttributes(entries ...AttributeEntry) Attributes {
+	attributes := Attributes{}
+	for _, entry := range entries {
+		attributes.Set(entry.Key, entry.Value)
 	}
+	return attributes
+}
+
+func (a *Attributes) Size() int {
 	return len(a.Keys)
 }
 
-func (a *Attributes) Append(key, value string) *Attributes {
+func (a *Attributes) Append(key, value string) {
 	if previous, ok := a.TryGet(key); ok {
 		a.Set(key, previous+" "+value)
 	} else {
 		a.Set(key, value)
 	}
-	return a
 }
 
-func (a *Attributes) Set(key, value string) *Attributes {
+func (a *Attributes) Set(key, value string) {
 	if _, ok := a.Map[key]; !ok {
 		a.Keys = append(a.Keys, key)
 	}
@@ -32,35 +36,25 @@ func (a *Attributes) Set(key, value string) *Attributes {
 		a.Map = make(map[string]string)
 	}
 	a.Map[key] = value
-	return a
 }
 
 func (a *Attributes) TryGet(key string) (string, bool) {
-	if a == nil {
-		return "", false
-	}
 	value, ok := a.Map[key]
 	return value, ok
 }
 
 func (a *Attributes) Get(key string) string {
-	if a == nil {
-		return ""
-	}
 	return a.Map[key]
 }
 
-func (a *Attributes) MergeWith(other *Attributes) *Attributes {
-	if other != nil {
-		for _, key := range other.Keys {
-			a.Set(key, other.Get(key))
-		}
+func (a *Attributes) MergeWith(other Attributes) {
+	for _, key := range other.Keys {
+		a.Set(key, other.Get(key))
 	}
-	return a
 }
 
 func (a *Attributes) Entries() []AttributeEntry {
-	if a == nil {
+	if len(a.Keys) == 0 {
 		return nil
 	}
 	entries := make([]AttributeEntry, 0, len(a.Map))
@@ -71,7 +65,7 @@ func (a *Attributes) Entries() []AttributeEntry {
 }
 
 func (a *Attributes) GoMap() map[string]string {
-	if a == nil {
+	if len(a.Keys) == 0 {
 		return nil
 	}
 	entries := make(map[string]string)

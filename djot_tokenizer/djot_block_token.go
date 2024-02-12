@@ -88,10 +88,13 @@ func MatchBlockToken(
 		}
 
 		token := tokenizer.Token[DjotToken]{
-			Type:       tokenType,
-			Start:      initialState,
-			End:        next,
-			Attributes: (&tokenizer.Attributes{}).Set(attributeKey, r.Select(metaStart, metaEnd)),
+			Type:  tokenType,
+			Start: initialState,
+			End:   next,
+			Attributes: tokenizer.NewAttributes(tokenizer.AttributeEntry{
+				Key:   attributeKey,
+				Value: r.Select(metaStart, metaEnd),
+			}),
 		}
 		return success(token, next)
 	case ReferenceDefBlock, FootnoteDefBlock:
@@ -114,10 +117,13 @@ func MatchBlockToken(
 			return fail()
 		}
 		token := tokenizer.Token[DjotToken]{
-			Type:       tokenType,
-			Start:      initialState,
-			End:        next,
-			Attributes: (&tokenizer.Attributes{}).Set(ReferenceKey, r.Select(startKey, endKey)),
+			Type:  tokenType,
+			Start: initialState,
+			End:   next,
+			Attributes: tokenizer.NewAttributes(tokenizer.AttributeEntry{
+				Key:   ReferenceKey,
+				Value: r.Select(startKey, endKey),
+			}),
 		}
 		return success(token, next)
 	case ThematicBreakToken:

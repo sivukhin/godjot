@@ -44,7 +44,7 @@ func TestAttributes(t *testing.T) {
 			s     string
 			value map[string]string
 		}{
-			{s: `{% This is a comment, spanning\nmultiple lines %}`, value: map[string]string{}},
+			{s: `{% This is a comment, spanning\nmultiple lines %}`, value: nil},
 			{s: `{.some-class}`, value: map[string]string{DjotAttributeClassKey: "some-class"}},
 			{s: `{.some-class % comment \n with \n newlines %}`, value: map[string]string{DjotAttributeClassKey: "some-class"}},
 			{s: `{.a % comment % .b}`, value: map[string]string{DjotAttributeClassKey: "a b"}},

@@ -62,16 +62,18 @@ func TestSimpleLink(t *testing.T) {
 func TestSimpleLinkWithNewline(t *testing.T) {
 	tokens := BuildDjotTokens([]byte("[My link text](http://example.com?product_number=234234234234\n234234234234)"))
 	require.Equal(t, tokenizer.TokenList[DjotToken]{
-		{Type: DocumentBlock, Start: 0, End: 0, JumpToPair: 9},
-		{Type: ParagraphBlock, Start: 0, End: 0, JumpToPair: 7},
+		{Type: DocumentBlock, Start: 0, End: 0, JumpToPair: 11},
+		{Type: ParagraphBlock, Start: 0, End: 0, JumpToPair: 9},
 		{Type: SpanInline, Start: 0, End: 1, JumpToPair: 2},
 		{Type: None, Start: 1, End: 13},
 		{Type: SpanInline ^ tokenizer.Open, Start: 13, End: 14, JumpToPair: -2},
-		{Type: LinkUrlInline, Start: 14, End: 15, JumpToPair: 2},
-		{Type: None, Start: 15, End: 74},
-		{Type: LinkUrlInline ^ tokenizer.Open, Start: 74, End: 75, JumpToPair: -2},
-		{Type: ParagraphBlock ^ tokenizer.Open, Start: 75, End: 75, JumpToPair: -7},
-		{Type: DocumentBlock ^ tokenizer.Open, Start: 75, End: 75, JumpToPair: -9},
+		{Type: LinkUrlInline, Start: 14, End: 15, JumpToPair: 4},
+		{Type: None, Start: 15, End: 61},
+		{Type: SmartSymbolInline, Start: 61, End: 62},
+		{Type: None, Start: 62, End: 74},
+		{Type: LinkUrlInline ^ tokenizer.Open, Start: 74, End: 75, JumpToPair: -4},
+		{Type: ParagraphBlock ^ tokenizer.Open, Start: 75, End: 75, JumpToPair: -9},
+		{Type: DocumentBlock ^ tokenizer.Open, Start: 75, End: 75, JumpToPair: -11},
 	}, tokens)
 }
 
@@ -80,7 +82,9 @@ func TestMathVerbatim(t *testing.T) {
 	require.Equal(t, tokenizer.TokenList[DjotToken]{
 		{Type: DocumentBlock, Start: 0, End: 0, JumpToPair: 6},
 		{Type: ParagraphBlock, Start: 0, End: 0, JumpToPair: 4},
-		{Type: VerbatimInline, Start: 0, End: 3, JumpToPair: 2},
+		{Type: VerbatimInline, Start: 0, End: 3, JumpToPair: 2, Attributes: tokenizer.NewAttributes(tokenizer.AttributeEntry{
+			Key: DisplayMathKey,
+		})},
 		{Type: None, Start: 3, End: 8},
 		{Type: VerbatimInline ^ tokenizer.Open, Start: 8, End: 9, JumpToPair: -2},
 		{Type: ParagraphBlock ^ tokenizer.Open, Start: 9, End: 9, JumpToPair: -4},
@@ -95,14 +99,14 @@ func TestVerbatim(t *testing.T) {
 		{Type: DocumentBlock, Start: 0, End: 0, JumpToPair: 10},
 		{Type: ParagraphBlock, Start: 0, End: 0, JumpToPair: 8},
 		{Type: VerbatimInline, Start: 0, End: 2, JumpToPair: 2},
-		{Type: None, Start: 2, End: 37},
-		{Type: VerbatimInline ^ tokenizer.Open, Start: 37, End: 39, JumpToPair: -2},
-		{Type: None, Start: 39, End: 40},
-		{Type: VerbatimInline, Start: 40, End: 41, JumpToPair: 2},
-		{Type: None, Start: 41, End: 84},
-		{Type: VerbatimInline ^ tokenizer.Open, Start: 84, End: 85, JumpToPair: -2},
-		{Type: ParagraphBlock ^ tokenizer.Open, Start: 85, End: 85, JumpToPair: -8},
-		{Type: DocumentBlock ^ tokenizer.Open, Start: 85, End: 85, JumpToPair: -10},
+		{Type: None, Start: 2, End: 43},
+		{Type: VerbatimInline ^ tokenizer.Open, Start: 43, End: 45, JumpToPair: -2},
+		{Type: SmartSymbolInline, Start: 45, End: 46},
+		{Type: VerbatimInline, Start: 46, End: 47, JumpToPair: 2},
+		{Type: None, Start: 47, End: 96},
+		{Type: VerbatimInline ^ tokenizer.Open, Start: 96, End: 97, JumpToPair: -2},
+		{Type: ParagraphBlock ^ tokenizer.Open, Start: 97, End: 97, JumpToPair: -8},
+		{Type: DocumentBlock ^ tokenizer.Open, Start: 97, End: 97, JumpToPair: -10},
 	}, tokens)
 }
 

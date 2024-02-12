@@ -6,7 +6,7 @@ type Token[T comparable] struct {
 	Type       T
 	JumpToPair int
 	Start, End int
-	Attributes *Attributes
+	Attributes Attributes
 }
 
 func (t Token[T]) Length() int { return t.End - t.Start }

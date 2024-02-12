@@ -40,5 +40,5 @@ jobs:
       - name: Build
         run: go build -v ./...
       - name: Test with the Go CLI
-        run: make test FORMAT=github-actions
+        run: TEST_FORMAT=github-actions make test
 

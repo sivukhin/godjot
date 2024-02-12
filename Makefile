@@ -1,6 +1,12 @@
-FORMAT=standard-quiet
+.PHONY: test lint
+
+TEST_FORMAT ?= standard-quiet
+LINT_FORMAT ?= colored-line-number
+
+all: test lint
+
 test:
 	go install gotest.tools/gotestsum@latest
-	gotestsum -f $(FORMAT) -- -tags=test ./...
+	gotestsum --format $(FORMAT) -- -tags=test ./...
 lint:
-	golangci-lint run -v
+	golangci-lint run --out-format $(LINT_FORMAT) --verbose

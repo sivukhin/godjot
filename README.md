@@ -23,7 +23,7 @@ AST is loosely typed and described with following simple struct:
 ```go
 type TreeNode[T ~int] struct {
     Type       T                     // one of DjotNode options
-    Attributes *tokenizer.Attributes // string attributes of node
+    Attributes tokenizer.Attributes  // string attributes of node
     Children   []TreeNode[T]         // list of child
     Text       []byte                // not nil only for TextNode
 }

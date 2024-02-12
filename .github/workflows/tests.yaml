@@ -2,11 +2,7 @@ name: "tests"
 
 on:
   push:
-    branches:
-      - 'master'
-  pr:
-    branches:
-      - 'master'
+  pull_request:
 
 jobs:
   lint:

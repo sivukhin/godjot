@@ -1,6 +1,6 @@
 ## godjot
 
-[Djot](https://djot.net/) parser implemented in Go language
+[Djot](https://github.com/jgm/djot) markup language parser implemented in Go language
 
 ### Installation
 

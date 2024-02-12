@@ -7,6 +7,6 @@ all: test lint
 
 test:
 	go install gotest.tools/gotestsum@latest
-	gotestsum --format $(FORMAT) -- -tags=test ./...
+	gotestsum --format $(TEST_FORMAT) -- -tags=test ./...
 lint:
 	golangci-lint run --out-format $(LINT_FORMAT) --verbose

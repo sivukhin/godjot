@@ -907,7 +907,7 @@ func buildDjotAst(
 					Children:   []TreeNode[DjotNode]{{Type: TextNode, Text: []byte("↩︎︎")}},
 					Attributes: attributes,
 				}
-				if children[len(children)-1].Type == ParagraphNode {
+				if len(children) > 0 && children[len(children)-1].Type == ParagraphNode {
 					children[len(children)-1].Children = append(children[len(children)-1].Children, backrefLinkNode)
 				} else {
 					children = append(children, TreeNode[DjotNode]{Type: ParagraphNode, Children: []TreeNode[DjotNode]{backrefLinkNode}})

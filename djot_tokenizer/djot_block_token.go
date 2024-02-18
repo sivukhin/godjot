@@ -7,9 +7,9 @@ import (
 )
 
 var (
-	NotSpaceByteMask      = tokenizer.SpaceNewLineByteMask.Negate()
-	NotBracketByteMask    = tokenizer.NewByteMask([]byte("]")).Negate()
-	ThematicBreakByteMask = tokenizer.NewByteMask([]byte(" \t\n*-"))
+	NotSpaceNewLineByteMask = tokenizer.SpaceNewLineByteMask.Negate()
+	NotBracketByteMask      = tokenizer.NewByteMask([]byte("]")).Negate()
+	ThematicBreakByteMask   = tokenizer.NewByteMask([]byte(" \t\n*-"))
 
 	DigitByteMask      = tokenizer.NewByteMask([]byte("0123456789"))
 	LowerAlphaByteMask = tokenizer.NewByteMask([]byte("abcdefghijklmnopqrstuvwxyz"))
@@ -79,8 +79,11 @@ func MatchBlockToken(
 		}
 
 		metaStart := next
-		next, ok = r.MaskRepeat(next, NotSpaceByteMask, 1)
-		tokenizer.Assertf(ok, "MaskRepeat must match because !r.IsEmpty(next) and next symbol is not in SpaceByteMask")
+		next, ok = r.MaskRepeat(next, NotSpaceNewLineByteMask, 1)
+		// usually MaskRepeat must match because !r.IsEmpty(next) and next symbol is not in SpaceByteMask but in some broken cases this can fail (see panic1 test)
+		if !ok {
+			return fail()
+		}
 		metaEnd := next
 
 		if next, ok = r.EmptyOrWhiteSpace(next); !ok {

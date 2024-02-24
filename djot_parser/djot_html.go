@@ -106,13 +106,15 @@ var DefaultConversionRegistry = map[DjotNode]Conversion{
 	},
 	VerbatimNode: func(s ConversionState, n func(c Children)) {
 		if _, ok := s.Node.Attributes.TryGet(djot_tokenizer.InlineMathKey); ok {
-			s.Writer.InTag("span", tokenizer.AttributeEntry{Key: "class", Value: "math inline"})(func() {
+			attributes := append([]tokenizer.AttributeEntry{{Key: "class", Value: "math inline"}}, s.Node.Attributes.Entries()...)
+			s.Writer.InTag("span", attributes...)(func() {
 				s.Writer.WriteString("\\(")
 				n(nil)
 				s.Writer.WriteString("\\)")
 			})
 		} else if _, ok := s.Node.Attributes.TryGet(djot_tokenizer.DisplayMathKey); ok {
-			s.Writer.InTag("span", tokenizer.AttributeEntry{Key: "class", Value: "math display"})(func() {
+			attributes := append([]tokenizer.AttributeEntry{{Key: "class", Value: "math display"}}, s.Node.Attributes.Entries()...)
+			s.Writer.InTag("span", attributes...)(func() {
 				s.Writer.WriteString("\\[")
 				n(nil)
 				s.Writer.WriteString("\\]")
@@ -120,7 +122,7 @@ var DefaultConversionRegistry = map[DjotNode]Conversion{
 		} else if rawFormat := s.Node.Attributes.Get(RawInlineFormatKey); rawFormat == s.Format {
 			n(nil)
 		} else {
-			s.Writer.InTag("code")(func() { n(nil) })
+			s.Writer.InTag("code", s.Node.Attributes.Entries()...)(func() { n(nil) })
 		}
 	},
 	HeadingNode: func(s ConversionState, n func(c Children)) {

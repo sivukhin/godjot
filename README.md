@@ -1,5 +1,10 @@
 ## godjot
 
+[![Go Report Card][go-report-image]][go-report-url]
+
+[go-report-image]: https://goreportcard.com/badge/github.com/sivukhin/godjot
+[go-report-url]: https://goreportcard.com/report/github.com/sivukhin/godjot
+
 [Djot](https://github.com/jgm/djot) markup language parser implemented in Go language
 
 ### Installation

@@ -89,7 +89,7 @@ func matchInlineToken(
 		if next, ok := r.Token2(s, [...]byte{'{', '_'}); ok {
 			return next, ok
 		}
-		if next, ok := r.Token1(s, [...]byte{'_'}); ok && !r.HasMask(next, tokenizer.SpaceNewLineByteMask) {
+		if next, ok := r.Token1(s, [...]byte{'_'}); ok && !r.HasMask(next, tokenizer.SpaceNewLineByteMask) && !r.HasToken1(next, [...]byte{'}'}) {
 			return next, ok
 		}
 		return fail()
@@ -105,7 +105,7 @@ func matchInlineToken(
 		if next, ok := r.Token2(s, [...]byte{'{', '*'}); ok {
 			return next, ok
 		}
-		if next, ok := r.Token1(s, [...]byte{'*'}); ok && !r.HasMask(next, tokenizer.SpaceNewLineByteMask) {
+		if next, ok := r.Token1(s, [...]byte{'*'}); ok && !r.HasMask(next, tokenizer.SpaceNewLineByteMask) && !r.HasToken1(next, [...]byte{'}'}) {
 			return next, ok
 		}
 		return fail()
@@ -125,22 +125,34 @@ func matchInlineToken(
 		if next, ok := r.Token2(s, [...]byte{'{', '~'}); ok {
 			return next, ok
 		}
-		return r.Token1(s, [...]byte{'~'})
+		if next, ok := r.Token1(s, [...]byte{'~'}); ok && !r.HasMask(next, tokenizer.SpaceNewLineByteMask) && !r.HasToken1(next, [...]byte{'}'}) {
+			return next, ok
+		}
+		return fail()
 	case SubscriptInline ^ tokenizer.Open:
 		if next, ok := r.Token2(s, [...]byte{'~', '}'}); ok {
 			return next, ok
 		}
-		return r.Token1(s, [...]byte{'~'})
+		if next, ok := r.Token1(s, [...]byte{'~'}); ok && s > 0 && !r.HasMask(s-1, tokenizer.SpaceNewLineByteMask) {
+			return next, ok
+		}
+		return fail()
 	case SuperscriptInline:
 		if next, ok := r.Token2(s, [...]byte{'{', '^'}); ok {
 			return next, ok
 		}
-		return r.Token1(s, [...]byte{'^'})
+		if next, ok := r.Token1(s, [...]byte{'^'}); ok && !r.HasMask(next, tokenizer.SpaceNewLineByteMask) && !r.HasToken1(next, [...]byte{'}'}) {
+			return next, ok
+		}
+		return fail()
 	case SuperscriptInline ^ tokenizer.Open:
 		if next, ok := r.Token2(s, [...]byte{'^', '}'}); ok {
 			return next, ok
 		}
-		return r.Token1(s, [...]byte{'^'})
+		if next, ok := r.Token1(s, [...]byte{'^'}); ok && s > 0 && !r.HasMask(s-1, tokenizer.SpaceNewLineByteMask) {
+			return next, ok
+		}
+		return fail()
 	case InsertInline:
 		return r.Token2(s, [...]byte{'{', '+'})
 	case InsertInline ^ tokenizer.Open:

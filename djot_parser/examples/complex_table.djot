@@ -1,0 +1,14 @@
+| XXX, XXXXX          | XXXXXX          | XXXXXX           |
+|---------------------|-----------------|------------------|
+| XXXXX XXXX          | XXXX-XX XXXX    | XXXXXXXXX, XX    |
+| XXXXX XXXXX (X)     | XX:XXXX         | X:XXXX           |
+|                     |                 |                  |
+| XXX, XXXXX          | XXXXXX          | XXXXXX           |
+|---------------------|-----------------|------------------|
+| XXXXX XXXX          | XXXXXXXXX, XX   | XXXXXX, XX       |
+| XXXXX XXXXXXX+ (X)  | X:XXXX          | XX:XXXX          |
+|                     |                 |                  |
+| XXX, XXXXX          | XXXXXX          | XXXXXX           |
+|---------------------|-----------------|------------------|
+| XXXXX XXXX          | XXXXXX, XX      | XXXX-XX XXXX     |
+| XXXXX XXXXX (X)     | X:XXXX          | X:XXXX           |

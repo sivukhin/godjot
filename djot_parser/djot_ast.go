@@ -468,14 +468,18 @@ func buildDjotAst(
 				for s := i + 1; s < i+openToken.JumpToPair; s++ {
 					if list[s].Type == djot_tokenizer.PipeTableSeparator {
 						columns++
-						content := bytes.TrimSpace(document[list[s].End:list[s+list[s].JumpToPair].Start])
-						if bytes.HasPrefix(content, []byte(":-")) && bytes.Count(content, []byte("-")) == len(content)-1 {
+						content := document[list[s].Start+1 : list[s+list[s].JumpToPair].End-1]
+						dashCount := bytes.Count(content, []byte("-"))
+						if dashCount == 0 {
+							continue
+						}
+						if bytes.HasPrefix(content, []byte(":-")) && dashCount == len(content)-1 {
 							alignments = append(alignments, LeftAlignment)
-						} else if bytes.HasSuffix(content, []byte("-:")) && bytes.Count(content, []byte("-")) == len(content)-1 {
+						} else if bytes.HasSuffix(content, []byte("-:")) && dashCount == len(content)-1 {
 							alignments = append(alignments, RightAlignment)
-						} else if bytes.HasPrefix(content, []byte(":-")) && bytes.HasSuffix(content, []byte("-:")) && bytes.Count(content, []byte("-")) == len(content)-2 {
+						} else if bytes.HasPrefix(content, []byte(":-")) && bytes.HasSuffix(content, []byte("-:")) && dashCount == len(content)-2 {
 							alignments = append(alignments, CenterAlignment)
-						} else if bytes.Count(content, []byte("-")) == len(content) {
+						} else if dashCount == len(content) {
 							alignments = append(alignments, DefaultAlignment)
 						}
 					}

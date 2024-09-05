@@ -468,7 +468,7 @@ func buildDjotAst(
 				for s := i + 1; s < i+openToken.JumpToPair; s++ {
 					if list[s].Type == djot_tokenizer.PipeTableSeparator {
 						columns++
-						content := document[list[s].Start+1 : list[s+list[s].JumpToPair].End-1]
+						content := document[list[s].Start+1 : list[s+list[s].JumpToPair].Start]
 						dashCount := bytes.Count(content, []byte("-"))
 						if dashCount == 0 {
 							continue

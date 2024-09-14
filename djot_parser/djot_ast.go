@@ -444,11 +444,12 @@ func buildDjotAst(
 
 	footnotes := make([]TreeNode[DjotNode], 0)
 	groupElementsPop := make(map[int]int)
+
 	groupElementsInsert := make(map[int]*TreeNode[DjotNode])
 	assignedTableProps := make(map[int]TableProps)
 	{
 		groupElements := make([]*TreeNode[DjotNode], 0)
-		activeList, activeListNode, activeListLastItemSparse := ListProps{}, &TreeNode[DjotNode]{}, false
+		activeList, activeListNode, activeListLastItemSparse := ListProps{}, (*TreeNode[DjotNode])(nil), false
 		activeTableProps := TableProps{}
 		i, previous := 0, -1
 		for i < len(list) {
@@ -523,7 +524,8 @@ func buildDjotAst(
 				groupElements = append(groupElements, &sectionNode)
 			case djot_tokenizer.ListItemBlock:
 				currentList, currentStart := detectListProps(document, openToken)
-				if len(groupElements) > 0 && (groupElements[len(groupElements)-1].Type != currentList.Type || activeList != currentList) {
+				// reset group only if last active group is the List of another type (markers, style, etc.)
+				if len(groupElements) > 0 && activeListNode != nil && activeList != currentList {
 					groupElementsPop[i] = 1
 					groupElements = groupElements[:len(groupElements)-1]
 				}
@@ -553,7 +555,7 @@ func buildDjotAst(
 				}
 			}
 			if openToken.Type != djot_tokenizer.ListItemBlock {
-				activeList, activeListNode, activeListLastItemSparse = ListProps{}, &TreeNode[DjotNode]{}, false
+				activeList, activeListNode, activeListLastItemSparse = ListProps{}, (*TreeNode[DjotNode])(nil), false
 			}
 			if openToken.Type != djot_tokenizer.PipeTableBlock {
 				activeTableProps = TableProps{}

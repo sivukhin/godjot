@@ -45,6 +45,7 @@ const (
 	ListItemNode
 	DefinitionTermNode
 	DefinitionItemNode
+	InputNode
 	CodeNode
 	RawNode
 	ThematicBreakNode
@@ -102,6 +103,8 @@ func (n DjotNode) String() string {
 		return "TaskListNode"
 	case DefinitionListNode:
 		return "DefinitionListNode"
+	case InputNode:
+		return "InputNode"
 	case CodeNode:
 		return "CodeNode"
 	case RawNode:
@@ -897,7 +900,7 @@ func buildDjotAst(
 							if !bytes.HasPrefix(openToken.Bytes(document), []byte("- [ ]")) {
 								taskNodeAttributes.Set("checked", "")
 							}
-							children = append(children, TreeNode[DjotNode]{Type: TextNode, Attributes: taskNodeAttributes})
+							children = append(children, TreeNode[DjotNode]{Type: InputNode, Attributes: taskNodeAttributes})
 						}
 						*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
 							Type:       ListItemNode,

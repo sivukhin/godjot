@@ -94,7 +94,7 @@ var DefaultConversionRegistry = map[DjotNode]Conversion{
 		s.InlineNodeConverter("dt", n)
 		s.Writer.WriteString("\n")
 	},
-	InputNode:        func(s ConversionState, n func(c Children)) { s.StandaloneNodeConverter("input") },
+	InputNode:          func(s ConversionState, n func(c Children)) { s.StandaloneNodeConverter("input") },
 	DefinitionItemNode: func(s ConversionState, n func(c Children)) { s.BlockNodeConverter("dd", n) },
 	SectionNode:        func(s ConversionState, n func(c Children)) { s.BlockNodeConverter("section", n) },
 	QuoteNode:          func(s ConversionState, n func(c Children)) { s.BlockNodeConverter("blockquote", n) },

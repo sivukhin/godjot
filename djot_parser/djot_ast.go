@@ -18,18 +18,16 @@ const (
 	SparseListNodeKey     = "$SparseListNodeKey"
 	DefinitionListItemKey = "$DefinitionListItemKey"
 
-	IdKey                  = "id"
-	RoleKey                = "role"
-	LinkHrefKey            = "href"
-	ImgAltKey              = "alt"
-	ImgSrcKey              = "src"
-	TaskListClass          = "task-list"
-	CheckedTaskItemClass   = "checked"
-	UncheckedTaskItemClass = "unchecked"
-	LeftAlignment          = "left"
-	CenterAlignment        = "center"
-	RightAlignment         = "right"
-	DefaultAlignment       = ""
+	IdKey            = "id"
+	RoleKey          = "role"
+	LinkHrefKey      = "href"
+	ImgAltKey        = "alt"
+	ImgSrcKey        = "src"
+	TaskListClass    = "task-list"
+	LeftAlignment    = "left"
+	CenterAlignment  = "center"
+	RightAlignment   = "right"
+	DefaultAlignment = ""
 )
 
 type DjotNode int
@@ -879,11 +877,6 @@ func buildDjotAst(
 						Children: definitionItemChildren,
 					})
 				} else {
-					if insertedNodeType == TaskListNode && bytes.HasPrefix(openToken.Bytes(document), []byte("- [ ]")) {
-						attributes.Append(djot_tokenizer.DjotAttributeClassKey, UncheckedTaskItemClass)
-					} else if insertedNodeType == TaskListNode {
-						attributes.Append(djot_tokenizer.DjotAttributeClassKey, CheckedTaskItemClass)
-					}
 					if !isSparseList && list[i+1].Type == djot_tokenizer.ParagraphBlock {
 						children := buildDjotAst(document, context, DjotLocalContext{TextNode: true}, list[i+2:i+1+list[i+1].JumpToPair])
 						if list[i+1+list[i+1].JumpToPair].End == len(document) {
@@ -896,9 +889,19 @@ func buildDjotAst(
 							Attributes: attributes,
 						})
 					} else {
+						children := buildDjotAst(document, context, localContext, list[i+1:i+openToken.JumpToPair])
+						if insertedNodeType == TaskListNode {
+							var taskNodeAttributes tokenizer.Attributes
+							taskNodeAttributes.Set("disabled", "")
+							taskNodeAttributes.Set("type", "checkbox")
+							if !bytes.HasPrefix(openToken.Bytes(document), []byte("- [ ]")) {
+								taskNodeAttributes.Set("checked", "")
+							}
+							children = append(children, TreeNode[DjotNode]{Type: TextNode, Attributes: taskNodeAttributes})
+						}
 						*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
 							Type:       ListItemNode,
-							Children:   buildDjotAst(document, context, localContext, list[i+1:i+openToken.JumpToPair]),
+							Children:   children,
 							Attributes: attributes,
 						})
 					}

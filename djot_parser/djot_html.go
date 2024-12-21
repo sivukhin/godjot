@@ -39,17 +39,19 @@ func (state ConversionState) BlockNodeConverter(tag string, next func(c Children
 	return state.Writer.InTag(tag, state.Node.Attributes.Entries()...)(content).WriteString("\n")
 }
 
-var DefaultSymbolRegistry = map[string]string{
-	"+1":     "👍",
-	"smiley": "😃",
-}
+var DefaultSymbolRegistry = map[string]string{}
 
 var DefaultConversionRegistry = map[DjotNode]Conversion{
 	ThematicBreakNode: func(s ConversionState, n func(c Children)) { s.Writer.OpenTag("hr").WriteString("\n") },
 	LineBreakNode:     func(s ConversionState, n func(c Children)) { s.Writer.OpenTag("br").WriteString("\n") },
 	TextNode:          func(s ConversionState, n func(c Children)) { s.Writer.WriteBytes(s.Node.Text) },
 	SymbolsNode: func(s ConversionState, n func(c Children)) {
-		s.Writer.WriteString(DefaultSymbolRegistry[string(s.Node.FullText())])
+		symbol, ok := DefaultSymbolRegistry[string(s.Node.FullText())]
+		if ok {
+			s.Writer.WriteString(symbol)
+		} else {
+			s.Writer.WriteString(fmt.Sprintf(":%v:", string(s.Node.FullText())))
+		}
 	},
 	InsertNode:       func(s ConversionState, n func(c Children)) { s.InlineNodeConverter("ins", n) },
 	DeleteNode:       func(s ConversionState, n func(c Children)) { s.InlineNodeConverter("del", n) },

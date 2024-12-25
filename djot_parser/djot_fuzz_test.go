@@ -36,7 +36,3 @@ func FuzzDjotTokenizer(f *testing.F) {
 	seedFuzz(f)
 	f.Fuzz(func(t *testing.T, input string) { _ = djot_tokenizer.BuildDjotTokens([]byte(input)) })
 }
-
-func TestName(t *testing.T) {
-	t.Log(djot_tokenizer.BuildDjotTokens([]byte("[^]:")))
-}

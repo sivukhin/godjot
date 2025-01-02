@@ -94,8 +94,8 @@ var DefaultConversionRegistry = map[DjotNode]Conversion{
 	ListItemNode: func(s ConversionState, n func(c Children)) {
 		class := s.Node.Attributes.Get(djot_tokenizer.DjotAttributeClassKey)
 		if class == CheckedTaskItemClass || class == UncheckedTaskItemClass {
-			s.Writer.InTag("li")(func() {
-				s.Writer.WriteString("\n")
+			s.Node.Attributes.Set(djot_tokenizer.DjotAttributeClassKey, "")
+			s.BlockNodeConverter("li", (func(c Children) {
 				s.Writer.WriteString("<input disabled=\"\" type=\"checkbox\"")
 				if class == CheckedTaskItemClass {
 					s.Writer.WriteString(" checked=\"\"")
@@ -103,7 +103,7 @@ var DefaultConversionRegistry = map[DjotNode]Conversion{
 				s.Writer.WriteString("/>").WriteString("\n")
 				n(s.Node.Children[:1])
 				s.Writer.WriteString("\n")
-			}).WriteString("\n")
+			}))
 		} else {
 			s.BlockNodeConverter("li", n)
 		}

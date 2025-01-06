@@ -101,10 +101,7 @@ var DefaultConversionRegistry = map[DjotNode]Conversion{
 					s.Writer.WriteString(" checked=\"\"")
 				}
 				s.Writer.WriteString("/>").WriteString("\n")
-				if len(s.Node.Children) > 1 {
-					n(s.Node.Children[:1])
-				}
-				s.Writer.WriteString("\n")
+				n(s.Node.Children)
 			}).WriteString("\n")
 		} else {
 			s.BlockNodeConverter("li", n)

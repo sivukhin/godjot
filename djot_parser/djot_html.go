@@ -91,7 +91,22 @@ var DefaultConversionRegistry = map[DjotNode]Conversion{
 	DefinitionListNode: func(s ConversionState, n func(c Children)) { s.BlockNodeConverter("dl", n) },
 	UnorderedListNode:  func(s ConversionState, n func(c Children)) { s.BlockNodeConverter("ul", n) },
 	OrderedListNode:    func(s ConversionState, n func(c Children)) { s.BlockNodeConverter("ol", n) },
-	ListItemNode:       func(s ConversionState, n func(c Children)) { s.BlockNodeConverter("li", n) },
+	ListItemNode: func(s ConversionState, n func(c Children)) {
+		class := s.Node.Attributes.Get(djot_tokenizer.DjotAttributeClassKey)
+		if class == CheckedTaskItemClass || class == UncheckedTaskItemClass {
+			s.Writer.InTag("li")(func() {
+				s.Writer.WriteString("\n")
+				s.Writer.WriteString("<input disabled=\"\" type=\"checkbox\"")
+				if class == CheckedTaskItemClass {
+					s.Writer.WriteString(" checked=\"\"")
+				}
+				s.Writer.WriteString("/>").WriteString("\n")
+				n(s.Node.Children)
+			}).WriteString("\n")
+		} else {
+			s.BlockNodeConverter("li", n)
+		}
+	},
 	DefinitionTermNode: func(s ConversionState, n func(c Children)) {
 		s.InlineNodeConverter("dt", n)
 		s.Writer.WriteString("\n")

@@ -422,6 +422,7 @@ type TableProps struct {
 
 type DjotLocalContext struct {
 	TextNode   bool
+	TableNode  bool
 	TableProps TableProps
 }
 
@@ -931,27 +932,32 @@ func buildDjotAst(
 				if !assignedTableProps[i].Ignore {
 					*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
 						Type:     TableRowNode,
-						Children: buildDjotAst(document, context, DjotLocalContext{TextNode: true, TableProps: assignedTableProps[i]}, trimPadding(document, list[i+1:i+openToken.JumpToPair])),
+						Children: buildDjotAst(document, context, DjotLocalContext{TextNode: true, TableNode: true, TableProps: assignedTableProps[i]}, trimPadding(document, list[i+1:i+openToken.JumpToPair])),
 					})
 				}
 			case djot_tokenizer.PipeTableSeparator:
-				nodeType := TableCellNode
-				if localContext.TableProps.IsHeader {
-					nodeType = TableHeaderNode
+				if localContext.TableNode {
+					nodeType := TableCellNode
+					if localContext.TableProps.IsHeader {
+						nodeType = TableHeaderNode
+					}
+					alignment := DefaultAlignment
+					if tableCellId < len(localContext.TableProps.Alignments) {
+						alignment = localContext.TableProps.Alignments[tableCellId]
+					}
+					tableCellId++
+					if alignment != DefaultAlignment {
+						attributes.Set("style", fmt.Sprintf("text-align: %v;", alignment))
+					}
+					*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
+						Type:       nodeType,
+						Children:   buildDjotAst(document, context, DjotLocalContext{TextNode: true}, trimPadding(document, list[i+1:i+openToken.JumpToPair])),
+						Attributes: attributes,
+					})
+				} else {
+					*nodesRef = append(*nodesRef, TreeNode[DjotNode]{Type: TextNode, Text: textBytes})
+					*nodesRef = append(*nodesRef, buildDjotAst(document, context, localContext, trimPadding(document, list[i+1:i+openToken.JumpToPair]))...)
 				}
-				alignment := DefaultAlignment
-				if tableCellId < len(localContext.TableProps.Alignments) {
-					alignment = localContext.TableProps.Alignments[tableCellId]
-				}
-				tableCellId++
-				if alignment != DefaultAlignment {
-					attributes.Set("style", fmt.Sprintf("text-align: %v;", alignment))
-				}
-				*nodesRef = append(*nodesRef, TreeNode[DjotNode]{
-					Type:       nodeType,
-					Children:   buildDjotAst(document, context, DjotLocalContext{TextNode: true}, trimPadding(document, list[i+1:i+openToken.JumpToPair])),
-					Attributes: attributes,
-				})
 			case djot_tokenizer.None:
 				if localContext.TextNode {
 					if attributes.Size() > 0 {

@@ -841,22 +841,22 @@ func buildDjotAst(
 					quoteDirection := detectQuoteDirection(document, openToken.Start)
 					if openToken.Type == djot_tokenizer.SmartSymbolInline {
 						if textString == "\"" && quoteDirection == OpenQuote {
-							textBytes = []byte(`&ldquo;`)
+							textBytes = []byte(`“`)
 						} else if textString == "\"" && quoteDirection == CloseQuote {
-							textBytes = []byte(`&rdquo;`)
+							textBytes = []byte(`”`)
 						} else if textString == "'" && quoteDirection == OpenQuote {
-							textBytes = []byte(`&lsquo;`)
+							textBytes = []byte(`‘`)
 						} else if textString == "'" && quoteDirection == CloseQuote {
-							textBytes = []byte(`&rsquo;`)
+							textBytes = []byte(`’`)
 						} else if textString == "..." {
-							textBytes = []byte(`&hellip;`)
+							textBytes = []byte(`…`)
 						} else if strings.Count(textString, "-") == len(textString) {
 							if len(textString)%3 == 0 {
-								textBytes = bytes.Repeat([]byte(`&mdash;`), len(textString)/3)
+								textBytes = bytes.Repeat([]byte(`—`), len(textString)/3)
 							} else if len(textString)%2 == 0 {
-								textBytes = bytes.Repeat([]byte(`&ndash;`), len(textString)/2)
+								textBytes = bytes.Repeat([]byte(`–`), len(textString)/2)
 							} else {
-								textBytes = append(bytes.Repeat([]byte(`&ndash;`), (len(textString)-3)/2), []byte(`&mdash;`)...)
+								textBytes = append(bytes.Repeat([]byte(`–`), (len(textString)-3)/2), []byte(`—`)...)
 							}
 						}
 					}

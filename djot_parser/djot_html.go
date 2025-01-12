@@ -2,6 +2,7 @@ package djot_parser
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/sivukhin/godjot/djot_tokenizer"
 	"github.com/sivukhin/godjot/html_writer"
@@ -17,6 +18,7 @@ type (
 		Format string
 		Writer *html_writer.HtmlWriter
 		Node   TreeNode[DjotNode]
+		Parent *TreeNode[DjotNode]
 	}
 	Conversion         func(state ConversionState, next func(Children))
 	ConversionRegistry map[DjotNode]Conversion
@@ -41,10 +43,29 @@ func (state ConversionState) BlockNodeConverter(tag string, next func(c Children
 
 var DefaultSymbolRegistry = map[string]string{}
 
+var htmlReplacer = strings.NewReplacer(
+	`&`, "&amp;",
+	`<`, "&lt;",
+	`>`, "&gt;",
+	`–`, `&ndash;`,
+	`—`, `&mdash;`,
+	`“`, `&ldquo;`,
+	`”`, `&rdquo;`,
+	`‘`, `&lsquo;`,
+	`’`, `&rsquo;`,
+	`…`, `&hellip;`,
+)
+
 var DefaultConversionRegistry = map[DjotNode]Conversion{
 	ThematicBreakNode: func(s ConversionState, n func(c Children)) { s.Writer.OpenTag("hr").WriteString("\n") },
 	LineBreakNode:     func(s ConversionState, n func(c Children)) { s.Writer.OpenTag("br").WriteString("\n") },
-	TextNode:          func(s ConversionState, n func(c Children)) { s.Writer.WriteBytes(s.Node.Text) },
+	TextNode: func(s ConversionState, n func(c Children)) {
+		if s.Parent != nil && (s.Parent.Attributes.Get(RawInlineFormatKey) == s.Format || s.Parent.Attributes.Get(RawBlockFormatKey) == s.Format) {
+			s.Writer.WriteString(string(s.Node.Text))
+		} else {
+			s.Writer.WriteString(htmlReplacer.Replace(string(s.Node.Text)))
+		}
+	},
 	SymbolsNode: func(s ConversionState, n func(c Children)) {
 		symbol, ok := DefaultSymbolRegistry[string(s.Node.FullText())]
 		if ok {
@@ -173,11 +194,11 @@ func (context ConversionContext) ConvertDjotToHtml(
 	builder *html_writer.HtmlWriter,
 	nodes ...TreeNode[DjotNode],
 ) string {
-	context.convertDjotToHtml(builder, nodes...)
+	context.convertDjotToHtml(builder, nil, nodes...)
 	return builder.String()
 }
 
-func (context ConversionContext) convertDjotToHtml(builder *html_writer.HtmlWriter, nodes ...TreeNode[DjotNode]) {
+func (context ConversionContext) convertDjotToHtml(builder *html_writer.HtmlWriter, parent *TreeNode[DjotNode], nodes ...TreeNode[DjotNode]) {
 	for _, node := range nodes {
 		currentNode := node
 		conversion, ok := context.Registry[currentNode.Type]
@@ -188,12 +209,13 @@ func (context ConversionContext) convertDjotToHtml(builder *html_writer.HtmlWrit
 			Format: context.Format,
 			Writer: builder,
 			Node:   currentNode,
+			Parent: parent,
 		}
 		conversion(state, func(c Children) {
 			if len(c) == 0 {
-				context.convertDjotToHtml(builder, currentNode.Children...)
+				context.convertDjotToHtml(builder, &node, currentNode.Children...)
 			} else {
-				context.convertDjotToHtml(builder, c...)
+				context.convertDjotToHtml(builder, &node, c...)
 			}
 		})
 	}

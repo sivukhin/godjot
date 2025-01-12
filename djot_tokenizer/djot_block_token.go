@@ -74,8 +74,8 @@ func MatchBlockToken(
 
 		next, ok = r.MaskRepeat(next, tokenizer.SpaceByteMask, 0)
 		tokenizer.Assertf(ok, "MaskRepeat must match because minCount is zero")
-		if r.IsEmptyOrWhiteSpace(next) {
-			return success(tokenizer.Token[DjotToken]{Type: tokenType, Start: initialState, End: next}, next)
+		if end, ok := r.EmptyOrWhiteSpace(next); ok {
+			return success(tokenizer.Token[DjotToken]{Type: tokenType, Start: initialState, End: end}, end)
 		}
 
 		metaStart := next

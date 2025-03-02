@@ -72,6 +72,8 @@ func MatchBlockToken(
 			return fail()
 		}
 
+		repeat := next
+
 		next, ok = r.MaskRepeat(next, tokenizer.SpaceByteMask, 0)
 		tokenizer.Assertf(ok, "MaskRepeat must match because minCount is zero")
 		if end, ok := r.EmptyOrWhiteSpace(next); ok {
@@ -93,7 +95,7 @@ func MatchBlockToken(
 		token := tokenizer.Token[DjotToken]{
 			Type:  tokenType,
 			Start: initialState,
-			End:   next,
+			End:   repeat,
 			Attributes: tokenizer.NewAttributes(tokenizer.AttributeEntry{
 				Key:   attributeKey,
 				Value: r.Select(metaStart, metaEnd),

@@ -8,7 +8,6 @@ linters:
     - gofmt
     - whitespace
     - gosimple
-    - exportloopref
     - nilerr
     - goimports
     - staticcheck

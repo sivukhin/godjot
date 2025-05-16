@@ -72,6 +72,7 @@ const (
 	LinkNode
 	ImageNode
 	SpanNode
+	CommentNode
 )
 
 func (n DjotNode) IsList() bool {
@@ -152,6 +153,10 @@ func (n DjotNode) String() string {
 		return "LinkNode"
 	case ImageNode:
 		return "ImageNode"
+	case SpanNode:
+		return "SpanNode"
+	case CommentNode:
+		return "CommentNode"
 	default:
 		panic(fmt.Errorf("unexpected djot node: %d", n))
 	}
@@ -972,6 +977,13 @@ func buildDjotAst(
 						*nodesRef = append(*nodesRef, TreeNode[DjotNode]{Type: TextNode, Text: textBytes})
 					}
 				}
+			case djot_tokenizer.Comment:
+				// TODO implement Comment support
+				// c.f. https://htmlpreview.github.io/?https://github.com/jgm/djot/blob/master/doc/syntax.html#comment
+				// e.g. {% comment in here %}
+				// e.g. {#attr % comment in here %}
+			default:
+				// TODO missing default in switch statement
 			}
 			i = nextI
 		}

@@ -1,0 +1,7 @@
+Here's the reference.[^foo]
+
+[^foo]: This is a note
+with two paragraphs.
+
+  Second paragraph must
+be indented, at least in the first line.

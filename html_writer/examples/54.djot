@@ -1,0 +1,7 @@
+````
+This is how you do a code block:
+
+``` ruby
+x = 5 * 6
+```
+````

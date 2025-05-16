@@ -50,6 +50,8 @@ const (
 	SymbolsInline
 	PipeTableSeparator
 	SmartSymbolInline
+
+	Comment
 )
 
 func (t DjotToken) String() string {

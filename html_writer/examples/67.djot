@@ -1,0 +1,4 @@
+{title=foo}
+[ref]: /url
+
+[ref][]{title=bar}

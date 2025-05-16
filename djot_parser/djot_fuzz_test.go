@@ -12,6 +12,8 @@ import (
 	"github.com/sivukhin/godjot/djot_tokenizer"
 )
 
+const examplesDir = "examples"
+
 func seedFuzz(f *testing.F) {
 	dir, err := os.ReadDir(examplesDir)
 	require.Nil(f, err)
@@ -25,11 +27,6 @@ func seedFuzz(f *testing.F) {
 		require.Nil(f, err)
 		f.Add(string(djotExample))
 	}
-}
-
-func FuzzDjotE2E(f *testing.F) {
-	seedFuzz(f)
-	f.Fuzz(func(t *testing.T, input string) { _ = printDjot(input) })
 }
 
 func FuzzDjotTokenizer(f *testing.F) {

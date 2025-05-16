@@ -1,4 +1,4 @@
-package djot_parser
+package html_writer
 
 import (
 	"bytes"
@@ -14,16 +14,17 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	. "github.com/sivukhin/godjot/djot_parser"
 	"github.com/sivukhin/godjot/djot_tokenizer"
-	"github.com/sivukhin/godjot/html_writer"
 	"github.com/sivukhin/godjot/tokenizer"
 )
 
 func printDjot(text string) string {
 	document := []byte(text)
 	ast := BuildDjotAst(document)
-	fmt.Printf("ast: %v\n", ast)
-	return NewConversionContext("html", DefaultConversionRegistry).ConvertDjotToHtml(&html_writer.HtmlWriter{}, ast...)
+	// fmt.Printf("ast: %v\n", ast)
+	context := NewHtmlConversionContext("html")
+	return ConvertDjotToHtml(context, &HtmlWriter{}, ast...)
 }
 
 const examplesDir = "examples"

@@ -45,8 +45,8 @@ func main() {
 		log.Fatalf("failed to read input file %v: %v", *from, err)
 	}
 	ast := djot_parser.BuildDjotAst(input)
-	context := djot_parser.NewConversionContext("html", djot_parser.DefaultConversionRegistry)
-	html := []byte(context.ConvertDjotToHtml(&html_writer.HtmlWriter{}, ast...))
+	context := html_writer.NewHtmlConversionContext("html")
+	html := []byte(html_writer.ConvertDjotToHtml(context, &html_writer.HtmlWriter{}, ast...))
 	for len(html) > 0 {
 		n, err := outWriter.Write(html)
 		if err != nil {

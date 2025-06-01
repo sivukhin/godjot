@@ -974,8 +974,18 @@ func buildDjotAst(
 						*nodesRef = append(*nodesRef, TreeNode[DjotNode]{Type: TextNode, Text: textBytes})
 					}
 				}
+			// attributes processed separately in the aggregateAttributes before main switchQ
+			case djot_tokenizer.Attribute:
+			// these types need some context before them and they analyzed inside relevant branches in the main switch
+			case djot_tokenizer.RawFormatInline, djot_tokenizer.LinkUrlInline, djot_tokenizer.LinkReferenceInline:
+			// this types analyzed in the BuildDjotContext function
+			case djot_tokenizer.ReferenceDefBlock:
+			// this types analyzed in the previous switch
+			case djot_tokenizer.PipeTableCaptionBlock:
+			// these types are intentionally skipped
+			case djot_tokenizer.Padding, djot_tokenizer.Ignore:
 			default:
-				// TODO missing default in switch statement
+				panic(fmt.Errorf("unexpected tokenizer type: %v", openToken.Type))
 			}
 			i = nextI
 		}

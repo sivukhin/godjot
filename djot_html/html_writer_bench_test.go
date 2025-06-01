@@ -1,4 +1,4 @@
-package html_writer
+package djot_html
 
 import (
 	_ "embed"
@@ -14,9 +14,9 @@ func BenchmarkConvertDjotToHtml(b *testing.B) {
 	b.SetBytes(int64(len(sample01)))
 
 	ast := BuildDjotAst(sample01)
-	context := NewHtmlConversionContext("html")
+	context := NewConversionContext()
 	for i := 0; i < b.N; i++ {
-		html := ConvertDjotToHtml(context, &HtmlWriter{}, ast...)
+		html := context.ConvertDjot(&HtmlWriter{}, ast...).String()
 		if len(html) < 100 {
 			b.Fail()
 		}

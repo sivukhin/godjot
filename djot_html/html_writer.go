@@ -1,4 +1,4 @@
-package html_writer
+package djot_html
 
 import (
 	"bytes"
@@ -11,7 +11,9 @@ import (
 	"github.com/sivukhin/godjot/tokenizer"
 )
 
-var HtmlConversionRegistry = map[DjotNode]Conversion[*HtmlWriter]{
+var defaultSymbolRegistry = map[string]string{}
+
+var DefaultConversionRegistry = map[DjotNode]Conversion[*HtmlWriter]{
 	ThematicBreakNode: func(s ConversionState[*HtmlWriter], n func(c Children)) { s.Writer.OpenTag("hr").WriteString("\n") },
 	LineBreakNode:     func(s ConversionState[*HtmlWriter], n func(c Children)) { s.Writer.OpenTag("br").WriteString("\n") },
 	TextNode: func(s ConversionState[*HtmlWriter], n func(c Children)) {
@@ -22,7 +24,7 @@ var HtmlConversionRegistry = map[DjotNode]Conversion[*HtmlWriter]{
 		}
 	},
 	SymbolsNode: func(s ConversionState[*HtmlWriter], n func(c Children)) {
-		symbol, ok := DefaultSymbolRegistry[string(s.Node.FullText())]
+		symbol, ok := defaultSymbolRegistry[string(s.Node.FullText())]
 		if ok {
 			s.Writer.WriteString(symbol)
 		} else {

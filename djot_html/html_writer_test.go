@@ -1,4 +1,4 @@
-package html_writer
+package djot_html
 
 import (
 	"bytes"
@@ -23,8 +23,7 @@ func printDjot(text string) string {
 	document := []byte(text)
 	ast := BuildDjotAst(document)
 	fmt.Printf("ast: %v\n", ast)
-	context := NewHtmlConversionContext("html")
-	return ConvertDjotToHtml(context, &HtmlWriter{}, ast...)
+	return NewConversionContext().ConvertDjot(&HtmlWriter{}, ast...).String()
 }
 
 const examplesDir = "examples"

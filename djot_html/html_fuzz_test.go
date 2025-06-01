@@ -1,4 +1,4 @@
-package html_writer
+package djot_html
 
 import (
 	"fmt"

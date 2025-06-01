@@ -1,13 +1,12 @@
 package djot_parser
 
-import (
-	"io"
-)
-
 type (
 	// ConversionContext holds registry of conversion functions for all AST nodes
 	// Note, that it has generic parameter T which is opaque for the library and caller can use it however he wants
 	// (for example, render data somewhere or just analyze AST and accumulate some knowledge in the internal fields of T)
+	//
+	// Also, third-party libraries can implement custom factories for ConversionContext for targets different from HTML
+	// (see https://github.com/sivukhin/godjot/issues/14 for more details)
 	ConversionContext[T any] struct {
 		Format   string
 		Registry ConversionRegistry[T]
@@ -23,60 +22,37 @@ type (
 	Children                  []TreeNode[DjotNode]
 )
 
-var DefaultSymbolRegistry = map[string]string{}
+func (context ConversionContext[T]) ConvertDjot(
+	builder T,
+	nodes ...TreeNode[DjotNode],
+) T {
+	context.convertDjot(builder, nil, nodes...)
+	return builder
+}
 
-// NewConversionContext is made publicly available in order to allow third-party libraries to implement custom render of Djot markdown to the target different from HTML
-// (see https://github.com/sivukhin/godjot/issues/14 for more details)
-func NewConversionContext[T io.Writer](format string, converters ...map[DjotNode]Conversion[T]) ConversionContext[T] {
-	if len(converters) == 0 {
-		converters = []map[DjotNode]Conversion[T]{{
-			HeadingNode:        func(state ConversionState[T], next func(c Children)) {},
-			SectionNode:        func(state ConversionState[T], next func(c Children)) {},
-			TaskListNode:       func(state ConversionState[T], next func(c Children)) {},
-			DefinitionTermNode: func(state ConversionState[T], next func(c Children)) {},
-			DefinitionItemNode: func(state ConversionState[T], next func(c Children)) {},
-			RawNode:            func(state ConversionState[T], next func(c Children)) {},
-			ThematicBreakNode:  func(state ConversionState[T], next func(c Children)) {},
-			DivNode:            func(state ConversionState[T], next func(c Children)) {},
-			TableCaptionNode:   func(state ConversionState[T], next func(c Children)) {},
-			ReferenceDefNode:   func(state ConversionState[T], next func(c Children)) {},
-			FootnoteDefNode:    func(state ConversionState[T], next func(c Children)) {},
-			HighlightedNode:    func(state ConversionState[T], next func(c Children)) {},
-			SubscriptNode:      func(state ConversionState[T], next func(c Children)) {},
-			SuperscriptNode:    func(state ConversionState[T], next func(c Children)) {},
-			InsertNode:         func(state ConversionState[T], next func(c Children)) {},
-			SymbolsNode:        func(state ConversionState[T], next func(c Children)) {},
-			VerbatimNode:       func(state ConversionState[T], next func(c Children)) {},
-			LineBreakNode:      func(state ConversionState[T], next func(c Children)) {},
-			SpanNode:           func(state ConversionState[T], next func(c Children)) {},
-			DocumentNode:       func(state ConversionState[T], next func(c Children)) {},
-			QuoteNode:          func(state ConversionState[T], next func(c Children)) {},
-			OrderedListNode:    func(state ConversionState[T], next func(c Children)) {},
-			UnorderedListNode:  func(state ConversionState[T], next func(c Children)) {},
-			DefinitionListNode: func(state ConversionState[T], next func(c Children)) {},
-			ListItemNode:       func(state ConversionState[T], next func(c Children)) {},
-			ParagraphNode:      func(state ConversionState[T], next func(c Children)) {},
-			EmphasisNode:       func(state ConversionState[T], next func(c Children)) {},
-			StrongNode:         func(state ConversionState[T], next func(c Children)) {},
-			DeleteNode:         func(state ConversionState[T], next func(c Children)) {},
-			LinkNode:           func(state ConversionState[T], next func(c Children)) {},
-			ImageNode:          func(state ConversionState[T], next func(c Children)) {},
-			TextNode:           func(state ConversionState[T], next func(c Children)) {},
-			CodeNode:           func(state ConversionState[T], next func(c Children)) {},
-			TableNode:          func(state ConversionState[T], next func(c Children)) {},
-			TableCellNode:      func(state ConversionState[T], next func(c Children)) {},
-			TableHeaderNode:    func(state ConversionState[T], next func(c Children)) {},
-			TableRowNode:       func(state ConversionState[T], next func(c Children)) {},
-		}}
-	}
-	registry := make(map[DjotNode]Conversion[T])
-	for i := 0; i < len(converters); i++ {
-		for node, conversion := range converters[i] {
-			registry[node] = conversion
+func (context ConversionContext[T]) convertDjot(
+	builder T,
+	parent *TreeNode[DjotNode],
+	nodes ...TreeNode[DjotNode],
+) {
+	for _, node := range nodes {
+		currentNode := node
+		conversion, ok := context.Registry[currentNode.Type]
+		if !ok {
+			continue
 		}
-	}
-	return ConversionContext[T]{
-		Format:   format,
-		Registry: registry,
+		state := ConversionState[T]{
+			Format: context.Format,
+			Writer: builder,
+			Node:   currentNode,
+			Parent: parent,
+		}
+		conversion(state, func(c Children) {
+			if len(c) == 0 {
+				context.convertDjot(builder, &node, currentNode.Children...)
+			} else {
+				context.convertDjot(builder, &node, c...)
+			}
+		})
 	}
 }

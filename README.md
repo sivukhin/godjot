@@ -36,13 +36,12 @@ type TreeNode[T ~int] struct {
 
 You can transform AST to HTML with predefined set of rules:
 ```go
-content := djot_parser.NewConversionContext(
-    "html", 
-    djot_parser.DefaultConversionRegistry,
-    map[djot_parser.DjotNode]djot_parser.Conversion{
+content := djot_html.NewConversionContext(
+    djot_html.DefaultConversionRegistry,
+    map[djot_parser.DjotNode]djot_parser.Conversion[*djot_html.HtmlWriter]{
         /*
             You can overwrite default conversion rules with custom map
-            djot_parser.ImageNode: func(state djot_parser.ConversionState, next func(c djot_parser.Children)) {
+            djot_parser.ImageNode: func(state djot_parser.ConversionState[*djot_html.HtmlWriter], next func(c djot_parser.Children)) {
                 state.Writer.
                     OpenTag("figure").
                     OpenTag("img", state.Node.Attributes.Entries()...).
@@ -50,10 +49,10 @@ content := djot_parser.NewConversionContext(
                     WriteString(state.Node.Attributes.Get(djot_parser.ImgAltKey)).
                     CloseTag("figcaption").
                     CloseTag("figure")
-            }
+            },
         */
     }
-).ConvertDjotToHtml(&html_writer.HtmlWriter{}, ast...)
+).ConvertDjot(&djot_html.HtmlWriter{}, ast...).String()
 ```
 
 This implementation passes all examples provided in the [spec](https://htmlpreview.github.io/?https://github.com/jgm/djot/blob/master/doc/syntax.html) but can diverge from original javascript implementation in some cases.

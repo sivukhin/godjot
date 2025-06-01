@@ -1,4 +1,4 @@
-package djot_parser
+package djot_html
 
 import (
 	"fmt"
@@ -8,11 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/sivukhin/godjot/djot_tokenizer"
 )
-
-const examplesDir = "examples"
 
 func seedFuzz(f *testing.F) {
 	dir, err := os.ReadDir(examplesDir)
@@ -29,7 +25,7 @@ func seedFuzz(f *testing.F) {
 	}
 }
 
-func FuzzDjotTokenizer(f *testing.F) {
+func FuzzDjotE2E(f *testing.F) {
 	seedFuzz(f)
-	f.Fuzz(func(t *testing.T, input string) { _ = djot_tokenizer.BuildDjotTokens([]byte(input)) })
+	f.Fuzz(func(t *testing.T, input string) { _ = printDjot(input) })
 }

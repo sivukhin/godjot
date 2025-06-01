@@ -1,0 +1,8 @@
+Here's the reference.[^foo]
+
+[^foo]: This is a note
+  with two paragraphs.
+
+  Second paragraph.
+
+  > a block quote in the note.

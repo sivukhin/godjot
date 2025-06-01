@@ -6,8 +6,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/sivukhin/godjot/djot_html"
 	"github.com/sivukhin/godjot/djot_parser"
-	"github.com/sivukhin/godjot/html_writer"
 )
 
 func main() {

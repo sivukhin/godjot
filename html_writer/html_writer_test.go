@@ -22,7 +22,7 @@ import (
 func printDjot(text string) string {
 	document := []byte(text)
 	ast := BuildDjotAst(document)
-	// fmt.Printf("ast: %v\n", ast)
+	fmt.Printf("ast: %v\n", ast)
 	context := NewHtmlConversionContext("html")
 	return ConvertDjotToHtml(context, &HtmlWriter{}, ast...)
 }

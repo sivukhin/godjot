@@ -56,3 +56,13 @@ func (context ConversionContext[T]) convertDjot(
 		})
 	}
 }
+
+// temporary hack to avoid deprecated API misuse
+type backCompatGuard struct{ _ int }
+
+// NewConversionContext kept to simplify migration from old API to the new approach
+// Deprecated: use djot_html.New(converters...) instead
+// See https://github.com/sivukhin/godjot/releases/tag/v1.1.0
+func NewConversionContext(_ backCompatGuard) ConversionContext[backCompatGuard] {
+	panic("deprecated API usage")
+}

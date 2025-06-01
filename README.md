@@ -36,21 +36,23 @@ type TreeNode[T ~int] struct {
 
 You can transform AST to HTML with predefined set of rules:
 ```go
-content := djot_html.NewConversionContext(
+content := djot_html.New().ConvertDjot(&djot_html.HtmlWriter{}, ast...).String()
+```
+
+Or, you can override some default conversion rules:
+```go
+content := djot_html.New(
     djot_html.DefaultConversionRegistry,
     map[djot_parser.DjotNode]djot_parser.Conversion[*djot_html.HtmlWriter]{
-        /*
-            You can overwrite default conversion rules with custom map
-            djot_parser.ImageNode: func(state djot_parser.ConversionState[*djot_html.HtmlWriter], next func(c djot_parser.Children)) {
-                state.Writer.
-                    OpenTag("figure").
-                    OpenTag("img", state.Node.Attributes.Entries()...).
-                    OpenTag("figcaption").
-                    WriteString(state.Node.Attributes.Get(djot_parser.ImgAltKey)).
-                    CloseTag("figcaption").
-                    CloseTag("figure")
-            },
-        */
+        djot_parser.ImageNode: func(state djot_parser.ConversionState[*djot_html.HtmlWriter], next func(c djot_parser.Children)) {
+            state.Writer.
+                OpenTag("figure").
+                OpenTag("img", state.Node.Attributes.Entries()...).
+                OpenTag("figcaption").
+                WriteString(state.Node.Attributes.Get(djot_parser.ImgAltKey)).
+                CloseTag("figcaption").
+                CloseTag("figure")
+        },
     }
 ).ConvertDjot(&djot_html.HtmlWriter{}, ast...).String()
 ```

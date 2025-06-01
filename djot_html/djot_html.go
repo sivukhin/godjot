@@ -37,7 +37,7 @@ var htmlReplacer = strings.NewReplacer(
 	`…`, `&hellip;`,
 )
 
-func NewConversionContext(converters ...map[DjotNode]Conversion[*HtmlWriter]) ConversionContext[*HtmlWriter] {
+func New(converters ...map[DjotNode]Conversion[*HtmlWriter]) ConversionContext[*HtmlWriter] {
 	if len(converters) == 0 {
 		converters = []map[DjotNode]Conversion[*HtmlWriter]{DefaultConversionRegistry}
 	}

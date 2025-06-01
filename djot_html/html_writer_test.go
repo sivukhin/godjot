@@ -23,7 +23,7 @@ func printDjot(text string) string {
 	document := []byte(text)
 	ast := BuildDjotAst(document)
 	fmt.Printf("ast: %v\n", ast)
-	return NewConversionContext().ConvertDjot(&HtmlWriter{}, ast...).String()
+	return New().ConvertDjot(&HtmlWriter{}, ast...).String()
 }
 
 const examplesDir = "examples"

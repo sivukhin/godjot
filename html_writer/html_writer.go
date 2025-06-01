@@ -139,10 +139,6 @@ type HtmlWriter struct {
 	InPre       bool
 }
 
-func (w HtmlWriter) Write(bts []byte) (int, error) {
-	return w.Builder.Write(bts)
-}
-
 func (w *HtmlWriter) String() string { return w.Builder.String() }
 
 func (w *HtmlWriter) OpenTag(tag string, attributes ...tokenizer.AttributeEntry) *HtmlWriter {

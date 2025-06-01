@@ -5,19 +5,22 @@ import (
 )
 
 type (
-	ConversionContext[T io.Writer] struct {
+	// ConversionContext holds registry of conversion functions for all AST nodes
+	// Note, that it has generic parameter T which is opaque for the library and caller can use it however he wants
+	// (for example, render data somewhere or just analyze AST and accumulate some knowledge in the internal fields of T)
+	ConversionContext[T any] struct {
 		Format   string
 		Registry ConversionRegistry[T]
 	}
-	ConversionState[T io.Writer] struct {
+	ConversionState[T any] struct {
 		Format string
 		Writer T
 		Node   TreeNode[DjotNode]
 		Parent *TreeNode[DjotNode]
 	}
-	Conversion[T io.Writer]         func(state ConversionState[T], next func(Children))
-	ConversionRegistry[T io.Writer] map[DjotNode]Conversion[T]
-	Children                        []TreeNode[DjotNode]
+	Conversion[T any]         func(state ConversionState[T], next func(Children))
+	ConversionRegistry[T any] map[DjotNode]Conversion[T]
+	Children                  []TreeNode[DjotNode]
 )
 
 var DefaultSymbolRegistry = map[string]string{}

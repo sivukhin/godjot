@@ -12,7 +12,7 @@ import (
 )
 
 var HtmlConversionRegistry = map[DjotNode]Conversion[*HtmlWriter]{
-	ThematicBreakNode: func(s HtmlConversionState, n func(c Children)) { s.Writer.OpenTag("hr").WriteString("\n") },
+	ThematicBreakNode: func(s ConversionState[*HtmlWriter], n func(c Children)) { s.Writer.OpenTag("hr").WriteString("\n") },
 	LineBreakNode:     func(s ConversionState[*HtmlWriter], n func(c Children)) { s.Writer.OpenTag("br").WriteString("\n") },
 	TextNode: func(s ConversionState[*HtmlWriter], n func(c Children)) {
 		if s.Parent != nil && (s.Parent.Attributes.Get(RawInlineFormatKey) == s.Format || s.Parent.Attributes.Get(RawBlockFormatKey) == s.Format) {

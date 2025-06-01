@@ -2,7 +2,6 @@ package djot_parser
 
 import (
 	"io"
-	"strings"
 )
 
 type (
@@ -23,19 +22,8 @@ type (
 
 var DefaultSymbolRegistry = map[string]string{}
 
-var htmlReplacer = strings.NewReplacer(
-	`&`, "&amp;",
-	`<`, "&lt;",
-	`>`, "&gt;",
-	`–`, `&ndash;`,
-	`—`, `&mdash;`,
-	`“`, `&ldquo;`,
-	`”`, `&rdquo;`,
-	`‘`, `&lsquo;`,
-	`’`, `&rsquo;`,
-	`…`, `&hellip;`,
-)
-
+// NewConversionContext is made publicly available in order to allow third-party libraries to implement custom render of Djot markdown to the target different from HTML
+// (see https://github.com/sivukhin/godjot/issues/14 for more details)
 func NewConversionContext[T io.Writer](format string, converters ...map[DjotNode]Conversion[T]) ConversionContext[T] {
 	if len(converters) == 0 {
 		converters = []map[DjotNode]Conversion[T]{{

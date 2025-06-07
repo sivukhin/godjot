@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/sivukhin/godjot/tokenizer"
+	"github.com/sivukhin/godjot/v2/tokenizer"
 )
 
 func TestQuotedString(t *testing.T) {

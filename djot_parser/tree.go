@@ -1,12 +1,13 @@
 package djot_parser
 
-import "github.com/sivukhin/godjot/tokenizer"
+import "github.com/sivukhin/godjot/v2/tokenizer"
 
 type TreeNode[T ~int] struct {
 	Type       T
 	Attributes tokenizer.Attributes
 	Children   []TreeNode[T]
 	Text       []byte
+	Index      int
 }
 
 func (n TreeNode[T]) Traverse(f func(node TreeNode[T])) {

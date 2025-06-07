@@ -7,8 +7,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/sivukhin/godjot/djot_tokenizer"
-	"github.com/sivukhin/godjot/tokenizer"
+	"github.com/sivukhin/godjot/v2/djot_tokenizer"
+	"github.com/sivukhin/godjot/v2/tokenizer"
 )
 
 const (
@@ -400,7 +400,17 @@ func BuildDjotAst(document []byte) []TreeNode[DjotNode] {
 	tokens := djot_tokenizer.BuildDjotTokens(document)
 	context := BuildDjotContext(document, tokens)
 	ast := buildDjotAst(document, context, DjotLocalContext{}, tokens)
+	updateIndexes(ast[:])
 	return ast
+}
+
+func updateIndexes(tree []TreeNode[DjotNode]) {
+	for i, n := range tree {
+		n.Index = i
+		updateIndexes(n.Children[:])
+		tree[i] = n
+	}
+	return
 }
 
 func isTight(list tokenizer.TokenList[djot_tokenizer.DjotToken]) bool {

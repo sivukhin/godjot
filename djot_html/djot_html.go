@@ -5,7 +5,7 @@ import (
 
 	"maps"
 
-	. "github.com/sivukhin/godjot/djot_parser"
+	. "github.com/sivukhin/godjot/v2/djot_parser"
 )
 
 func StandaloneNodeConverter(state ConversionState[*HtmlWriter], tag string) *HtmlWriter {

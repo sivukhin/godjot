@@ -1,4 +1,4 @@
-module github.com/sivukhin/godjot
+module github.com/sivukhin/godjot/v2
 
 go 1.23
 

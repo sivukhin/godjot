@@ -1,9 +1,11 @@
 ## godjot
 
 [![Go Report Card][go-report-image]][go-report-url]
+![Go Version][go-build-badge]
 
 [go-report-image]: https://goreportcard.com/badge/github.com/sivukhin/godjot
 [go-report-url]: https://goreportcard.com/report/github.com/sivukhin/godjot
+[go-build-badge]: https://img.shields.io/github/v/tag/sivukhin/godjot?label=version&sort=semver
 
 [Djot](https://github.com/jgm/djot) markup language parser implemented in Go language
 

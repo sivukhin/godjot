@@ -14,9 +14,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	. "github.com/sivukhin/godjot/djot_parser"
-	"github.com/sivukhin/godjot/djot_tokenizer"
-	"github.com/sivukhin/godjot/tokenizer"
+	. "github.com/sivukhin/godjot/v2/djot_parser"
+	"github.com/sivukhin/godjot/v2/djot_tokenizer"
+	"github.com/sivukhin/godjot/v2/tokenizer"
 )
 
 func printDjot(text string) string {

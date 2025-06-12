@@ -1,9 +1,11 @@
 ## godjot
 
 [![Go Report Card][go-report-image]][go-report-url]
+![Go Version][go-build-badge]
 
 [go-report-image]: https://goreportcard.com/badge/github.com/sivukhin/godjot
 [go-report-url]: https://goreportcard.com/report/github.com/sivukhin/godjot
+[go-build-badge]: https://img.shields.io/github/v/tag/sivukhin/godjot?label=version&sort=semver
 
 [Djot](https://github.com/jgm/djot) markup language parser implemented in Go language
 
@@ -11,7 +13,7 @@
 
 You can install **godjot** as a standalone binary:
 ```shell
-$> go install github.com/sivukhin/godjot@latest
+$> go install github.com/sivukhin/godjot/v2@latest
 $> echo '*Hello*, _world_' | godjot
 <p><strong>Hello</strong>, <em>world</em></p>
 ```

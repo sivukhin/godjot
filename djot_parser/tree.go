@@ -7,6 +7,7 @@ type TreeNode[T ~int] struct {
 	Attributes tokenizer.Attributes
 	Children   []TreeNode[T]
 	Text       []byte
+	Index      int
 }
 
 func (n TreeNode[T]) Traverse(f func(node TreeNode[T])) {

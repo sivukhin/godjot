@@ -16,6 +16,7 @@ type (
 		Writer T
 		Node   TreeNode[DjotNode]
 		Parent *TreeNode[DjotNode]
+		Index  int // position of Node in Children list of Parent (zero if Parent == nil)
 	}
 	Conversion[T any]         func(state ConversionState[T], next func(Children))
 	ConversionRegistry[T any] map[DjotNode]Conversion[T]
@@ -35,7 +36,7 @@ func (context ConversionContext[T]) convertDjot(
 	parent *TreeNode[DjotNode],
 	nodes ...TreeNode[DjotNode],
 ) {
-	for _, node := range nodes {
+	for i, node := range nodes {
 		currentNode := node
 		conversion, ok := context.Registry[currentNode.Type]
 		if !ok {
@@ -46,6 +47,7 @@ func (context ConversionContext[T]) convertDjot(
 			Writer: builder,
 			Node:   currentNode,
 			Parent: parent,
+			Index:  i,
 		}
 		conversion(state, func(c Children) {
 			if len(c) == 0 {

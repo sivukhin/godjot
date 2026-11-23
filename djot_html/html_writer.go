@@ -3,7 +3,6 @@ package djot_html
 import (
 	"bytes"
 	"fmt"
-	"sort"
 	"strings"
 
 	. "github.com/sivukhin/godjot/v2/djot_parser"
@@ -41,7 +40,22 @@ var DefaultConversionRegistry = map[DjotNode]Conversion[*HtmlWriter]{
 	ParagraphNode: func(s ConversionState[*HtmlWriter], n func(c Children)) {
 		InlineNodeConverter(s, "p", n).WriteString("\n")
 	},
-	ImageNode:        func(s ConversionState[*HtmlWriter], n func(c Children)) { StandaloneNodeConverter(s, "img") },
+	ImageNode: func(s ConversionState[*HtmlWriter], n func(c Children)) {
+		// Djot emits the generated alt text and destination before source attributes.
+		attrs := s.Node.Attributes
+		entries := make([]tokenizer.AttributeEntry, 0, attrs.Size())
+		for _, key := range []string{ImgAltKey, ImgSrcKey} {
+			if value, ok := attrs.TryGet(key); ok {
+				entries = append(entries, tokenizer.AttributeEntry{Key: key, Value: value})
+			}
+		}
+		for _, key := range attrs.Keys {
+			if key != ImgAltKey && key != ImgSrcKey {
+				entries = append(entries, tokenizer.AttributeEntry{Key: key, Value: attrs.Get(key)})
+			}
+		}
+		s.Writer.OpenTag("img", entries...)
+	},
 	LinkNode:         func(s ConversionState[*HtmlWriter], n func(c Children)) { InlineNodeConverter(s, "a", n) },
 	SpanNode:         func(s ConversionState[*HtmlWriter], n func(c Children)) { InlineNodeConverter(s, "span", n) },
 	DivNode:          func(s ConversionState[*HtmlWriter], n func(c Children)) { BlockNodeConverter(s, "div", n) },
@@ -151,23 +165,6 @@ func (w *HtmlWriter) OpenTag(tag string, attributes ...tokenizer.AttributeEntry)
 	}
 	w.Builder.WriteString("<")
 	w.Builder.WriteString(tag)
-	sort.Slice(attributes, func(i, j int) bool {
-		iStart := attributes[i].Key
-		jStart := attributes[j].Key
-		if iStart == "class" && jStart != "class" {
-			return true
-		}
-		if iStart != "class" && jStart == "class" {
-			return false
-		}
-		if iStart == "id" && jStart != "id" {
-			return true
-		}
-		if iStart != "id" && jStart == "id" {
-			return false
-		}
-		return i < j
-	})
 	for _, attribute := range attributes {
 		if strings.HasPrefix(attribute.Key, "$") {
 			continue

@@ -344,12 +344,34 @@ type ListProps struct {
 	Marker string
 }
 
-func getPrefix(t []byte, mask tokenizer.ByteMask) []byte {
-	l := 0
-	for l < len(t) && mask.Has(t[l]) {
-		l++
+// A single Roman digit also has an alphabetic interpretation until a later
+// item establishes which numbering the list uses.
+type listItemMarker struct {
+	style                 ListProps
+	start                 string
+	alphaType, alphaStart string
+}
+
+func (m listItemMarker) accepts(style ListProps) bool {
+	return m.style.Type == style.Type && m.style.Style == style.Style &&
+		(m.style.Marker == style.Marker || (m.alphaType != "" && m.alphaType == style.Marker))
+}
+
+func (m listItemMarker) resolve(document []byte, items tokenizer.TokenList[djot_tokenizer.DjotToken]) (ListProps, string) {
+	if m.alphaType != "" {
+		alpha := m.style
+		alpha.Marker = m.alphaType
+		for i := items[0].JumpToPair + 1; i < len(items) && items[i].Type == djot_tokenizer.ListItemBlock; i += items[i].JumpToPair + 1 {
+			next := detectListMarker(document, items[i])
+			if !next.accepts(alpha) {
+				break
+			}
+			if !next.accepts(m.style) {
+				return alpha, m.alphaStart
+			}
+		}
 	}
-	return t[:l]
+	return m.style, m.start
 }
 
 var (
@@ -359,41 +381,79 @@ var (
 	UpperAlphaByteMask    = tokenizer.NewByteMask([]byte("ABCDEFGHIJKLMNOPQRSTUVWXYZ"))
 )
 
-func detectListProps(document []byte, token tokenizer.Token[djot_tokenizer.DjotToken]) (ListProps, string) {
-	start, style := token.Start, ""
+func detectListMarker(document []byte, token tokenizer.Token[djot_tokenizer.DjotToken]) listItemMarker {
+	start, delimiter := token.Start, ""
 	if document[start] == '(' {
 		start++
-		style += "("
+		delimiter = "("
 	}
 	end := start
 	for end < token.End && (DigitByteMask.Has(document[end]) || LowerAlphaByteMask.Has(document[end]) || UpperAlphaByteMask.Has(document[end])) {
 		end++
 	}
-	for end < token.End {
-		style += string(document[end])
-		end++
+	delimiter += string(document[end:token.End])
+	first := document[start]
+	switch {
+	case bytes.HasPrefix(document[token.Start:token.End], []byte("- [")):
+		return listItemMarker{style: ListProps{Type: TaskListNode}}
+	case UnorderedListByteMask.Has(first):
+		return listItemMarker{style: ListProps{Type: UnorderedListNode, Style: delimiter}}
+	case first == ':':
+		return listItemMarker{style: ListProps{Type: DefinitionListNode}}
+	case DigitByteMask.Has(first):
+		return listItemMarker{style: ListProps{Type: OrderedListNode, Marker: "1", Style: delimiter}, start: string(document[start:end])}
+	case LowerAlphaByteMask.Has(first), UpperAlphaByteMask.Has(first):
+		alpha, roman := "a", "i"
+		if UpperAlphaByteMask.Has(first) {
+			alpha, roman = "A", "I"
+		}
+		alphaStart := strconv.Itoa(int(first - alpha[0] + 1))
+		style := ListProps{Type: OrderedListNode, Marker: alpha, Style: delimiter}
+		number, ok := romanNumber(document[start:end])
+		if !ok {
+			return listItemMarker{style: style, start: alphaStart}
+		}
+		style.Marker = roman
+		marker := listItemMarker{style: style, start: strconv.FormatInt(number, 10)}
+		if end-start == 1 {
+			marker.alphaType, marker.alphaStart = alpha, alphaStart
+		}
+		return marker
+	default:
+		panic(fmt.Errorf("unexpected list token: %v", string(document[token.Start:token.End])))
 	}
+}
 
-	pivotByte := document[start]
-	if bytes.HasPrefix(document[token.Start:token.End], []byte("- [")) {
-		return ListProps{Type: TaskListNode}, ""
+func romanNumber(marker []byte) (int64, bool) {
+	var total, right int64
+	for i := len(marker) - 1; i >= 0; i-- {
+		var value int64
+		switch marker[i] {
+		case 'i', 'I':
+			value = 1
+		case 'v', 'V':
+			value = 5
+		case 'x', 'X':
+			value = 10
+		case 'l', 'L':
+			value = 50
+		case 'c', 'C':
+			value = 100
+		case 'd', 'D':
+			value = 500
+		case 'm', 'M':
+			value = 1000
+		default:
+			return 0, false
+		}
+		if value < right {
+			total -= value
+		} else {
+			total += value
+		}
+		right = value
 	}
-	if UnorderedListByteMask.Has(pivotByte) {
-		return ListProps{Type: UnorderedListNode, Style: style}, ""
-	}
-	if pivotByte == ':' {
-		return ListProps{Type: DefinitionListNode}, ""
-	}
-	if DigitByteMask.Has(pivotByte) {
-		return ListProps{Type: OrderedListNode, Marker: "1", Style: style}, string(getPrefix(document[start:], DigitByteMask))
-	}
-	if LowerAlphaByteMask.Has(pivotByte) {
-		return ListProps{Type: OrderedListNode, Marker: "a", Style: style}, strconv.Itoa(int(pivotByte - 'a' + 1))
-	}
-	if UpperAlphaByteMask.Has(pivotByte) {
-		return ListProps{Type: OrderedListNode, Marker: "A", Style: style}, strconv.Itoa(int(pivotByte - 'A' + 1))
-	}
-	panic(fmt.Errorf("unexpected list token: %v", string(document[token.Start:token.End])))
+	return total, true
 }
 
 func BuildDjotAst(document []byte) []TreeNode[DjotNode] {
@@ -526,13 +586,14 @@ func buildDjotAst(
 				groupElementsInsert[i] = &sectionNode
 				groupElements = append(groupElements, &sectionNode)
 			case djot_tokenizer.ListItemBlock:
-				currentList, currentStart := detectListProps(document, openToken)
+				marker := detectListMarker(document, openToken)
 				// reset group only if last active group is the List of another type (markers, style, etc.)
-				if len(groupElements) > 0 && activeListNode != nil && activeList != currentList {
+				if len(groupElements) > 0 && activeListNode != nil && !marker.accepts(activeList) {
 					groupElementsPop[i] = 1
 					groupElements = groupElements[:len(groupElements)-1]
 				}
 				if len(groupElements) == 0 || !groupElements[len(groupElements)-1].Type.IsList() {
+					currentList, currentStart := marker.resolve(document, list[i:])
 					var attributes tokenizer.Attributes
 					if currentStart != "1" && currentStart != "" {
 						attributes.Set("start", currentStart)
@@ -913,7 +974,7 @@ func buildDjotAst(
 				attributes.Set("role", "doc-backlink")
 				backrefLinkNode := TreeNode[DjotNode]{
 					Type:       LinkNode,
-					Children:   []TreeNode[DjotNode]{{Type: TextNode, Text: []byte("↩︎︎")}},
+					Children:   []TreeNode[DjotNode]{{Type: TextNode, Text: []byte("↩\ufe0e")}},
 					Attributes: attributes,
 				}
 				if len(children) > 0 && children[len(children)-1].Type == ParagraphNode {

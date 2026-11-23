@@ -70,6 +70,11 @@ func TestDownloadExample(t *testing.T) {
 	}
 }
 
+func TestFootnoteBacklinkText(t *testing.T) {
+	result := printDjot("test[^n]\n\n[^n]: note")
+	require.Contains(t, result, "<a href=\"#fnref1\" role=\"doc-backlink\">\u21a9\ufe0e</a>")
+}
+
 func TestStartSymbol(t *testing.T) {
 	dir, err := os.ReadDir(examplesDir)
 	require.Nil(t, err)
@@ -114,6 +119,18 @@ func TestDjotDocExample(t *testing.T) {
 				string(htmlExample), result,
 				djot_tokenizer.BuildDjotTokens(djotExample),
 			)
+		})
+	}
+}
+
+func TestAttributeOrder(t *testing.T) {
+	for _, tc := range []struct{ input, want string }{
+		{`avant{lang=fr}{.blue}`, `<p><span lang="fr" class="blue">avant</span></p>`},
+		{`[link](url){lang=fr .blue #link}`, `<p><a href="url" lang="fr" class="blue" id="link">link</a></p>`},
+		{`![image](url){lang=fr .blue}`, `<p><img alt="image" src="url" lang="fr" class="blue"></p>`},
+	} {
+		t.Run(tc.input, func(t *testing.T) {
+			require.Equal(t, tc.want+"\n", printDjot(tc.input))
 		})
 	}
 }

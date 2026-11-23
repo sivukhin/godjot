@@ -72,5 +72,6 @@ behavior and decide whether to close the issue.
 The [nightly workflow](../../.github/workflows/issue-repros.yml) also
 supports manual runs on the default branch. It writes a job summary and
 caches run history between invocations. Cache eviction starts a fresh
-baseline. Pull requests changing the reproducer tooling run its offline
-unit tests.
+baseline. Same-repository pull requests that change the renderer or tooling also replay
+the approved cases and report current results. Only default-branch runs update
+the shared nightly history. Fork pull requests run the offline tests.

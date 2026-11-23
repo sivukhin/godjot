@@ -913,7 +913,7 @@ func buildDjotAst(
 				attributes.Set("role", "doc-backlink")
 				backrefLinkNode := TreeNode[DjotNode]{
 					Type:       LinkNode,
-					Children:   []TreeNode[DjotNode]{{Type: TextNode, Text: []byte("↩︎︎")}},
+					Children:   []TreeNode[DjotNode]{{Type: TextNode, Text: []byte("↩\ufe0e")}},
 					Attributes: attributes,
 				}
 				if len(children) > 0 && children[len(children)-1].Type == ParagraphNode {

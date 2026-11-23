@@ -70,6 +70,11 @@ func TestDownloadExample(t *testing.T) {
 	}
 }
 
+func TestFootnoteBacklinkText(t *testing.T) {
+	result := printDjot("test[^n]\n\n[^n]: note")
+	require.Contains(t, result, "<a href=\"#fnref1\" role=\"doc-backlink\">\u21a9\ufe0e</a>")
+}
+
 func TestStartSymbol(t *testing.T) {
 	dir, err := os.ReadDir(examplesDir)
 	require.Nil(t, err)

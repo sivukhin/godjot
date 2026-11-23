@@ -1,0 +1,6 @@
+repository = "sivukhin/godjot"
+# GitHub User database IDs. Usernames are included for review only.
+maintainer_ids = [1395040] # sivukhin
+# GraphQL Bot node IDs of dedicated publishers.
+bot_ids = []
+build = ["env", "CGO_ENABLED=0", "go", "build", "-o", "out/issue-repro/godjot", "."]

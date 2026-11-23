@@ -1,2 +1,3 @@
 out/
 godjot
+/scripts/issue-repro/__pycache__/

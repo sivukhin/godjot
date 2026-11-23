@@ -1,0 +1,59 @@
+name: Issue reproducers
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/issue-repros.yml'
+      - '.issue-repro.toml'
+      - 'scripts/issue-repro/**'
+  workflow_dispatch:
+  schedule:
+    - cron: '23 3 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - run: python3 -m unittest discover -s scripts/issue-repro -p test_repro.py
+
+  replay:
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref_name == github.event.repository.default_branch
+    permissions:
+      contents: read
+      issues: read
+    concurrency:
+      group: godjot-issue-repro-history
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Scan open and closed issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/issue-repro/repro.py scan
+      - name: Restore previous results
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: out/issue-repro/cache/history.db
+          key: godjot-repro-history-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: godjot-repro-history-v1-
+      - name: Run approved cases
+        id: run
+        run: scripts/issue-repro/repro.py run
+      - name: Preserve results including observed failures
+        if: ${{ !cancelled() && (steps.run.outcome == 'success' || steps.run.outcome == 'failure') && hashFiles('out/issue-repro/cache/history.db') != '' }}
+        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: out/issue-repro/cache/history.db
+          key: godjot-repro-history-v1-${{ github.run_id }}-${{ github.run_attempt }}

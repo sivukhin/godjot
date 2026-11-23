@@ -28,13 +28,6 @@ var htmlReplacer = strings.NewReplacer(
 	`&`, "&amp;",
 	`<`, "&lt;",
 	`>`, "&gt;",
-	`–`, `&ndash;`,
-	`—`, `&mdash;`,
-	`“`, `&ldquo;`,
-	`”`, `&rdquo;`,
-	`‘`, `&lsquo;`,
-	`’`, `&rsquo;`,
-	`…`, `&hellip;`,
 )
 
 func New(converters ...map[DjotNode]Conversion[*HtmlWriter]) ConversionContext[*HtmlWriter] {

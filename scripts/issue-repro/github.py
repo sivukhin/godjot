@@ -15,6 +15,17 @@ COMMENTS = """
 ISSUE = "number state comments(last:8) {" + COMMENTS + "}"
 
 
+def api(method, endpoint, payload=None):
+    argv = ["gh", "api", "--method", method, endpoint]
+    data = None
+    if payload is not None:
+        argv.extend(["--input", "-"])
+        data = json.dumps(payload).encode()
+    response = subprocess.check_output(argv, input=data, timeout=45)
+    if method == "GET":
+        return json.loads(response)
+
+
 def scan(repo, state, labels, numbers, jobs, maintainer_ids, bot_ids):
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
         raise ValueError("expected OWNER/REPO")

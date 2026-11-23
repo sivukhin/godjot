@@ -8,6 +8,8 @@ import re
 import subprocess
 import sys
 
+from github import api
+from pr_description import sync_description
 from summary import change_summary
 
 PR_MARKER = "<!-- godjot:issue-repro-pr:v1 -->"
@@ -28,7 +30,11 @@ def main():
             data = stream.read(MAX_BYTES + 1)
     else:
         data = os.environ["REPORT_JSON"].encode()
-    publish(data, os.environ["GITHUB_REPOSITORY"], os.environ["GITHUB_RUN_ID"], args.pr, args.dry_run)
+    repo = os.environ["GITHUB_REPOSITORY"]
+    report = publish(data, repo, os.environ["GITHUB_RUN_ID"], args.pr, args.dry_run)
+    if not args.dry_run and (head_sha := os.environ.get("ISSUE_REPRO_HEAD_SHA")):
+        sync_description(repo, args.pr, report["fixes"], head_sha=head_sha,
+                         base_sha=os.environ["ISSUE_REPRO_BASE_SHA"])
 
 
 def publish(data, repo, run_id, pr, dry_run=False):
@@ -46,13 +52,14 @@ def publish(data, repo, run_id, pr, dry_run=False):
     body = f"{summary}\n\n{run_link}"
     if dry_run:
         print(body)
-        return
+        return report
     comments = f"{issues}/{pr}/comments"
     existing = find_comment(comments)
     if existing is None:
         api("POST", comments, {"body": body})
     elif existing["body"] != body:
         api("PATCH", f"{issues}/comments/{existing['id']}", {"body": body})
+    return report
 
 
 def read_report(data):
@@ -120,20 +127,13 @@ def render_summary(report, repo):
     lines = [change_summary(report), "", f"Tested [{rev[:12]}](https://github.com/{repo}/commit/{rev})."]
     for key, label in (("fixes", "Fixed cases"), ("regressions", "Regressed cases")):
         if report[key]:
-            refs = ", ".join(f"[#{n}](https://github.com/{repo}/issues/{n})" for n in sorted(report[key]))
+            lines.extend(["", f"**{label}**", ""])
+            for index, number in enumerate(sorted(report[key]), start=1):
+                lines.append(f"{index}. [#{number}](https://github.com/{repo}/issues/{number})")
             more = counts[key] - len(report[key])
-            lines.extend(["", f"**{label}** · {refs}" + (f" (and {more} more)" if more else "")])
+            if more:
+                lines.extend(["", f"And {more} more."])
     return "\n".join(lines)
-
-
-def api(method, endpoint, payload=None):
-    argv = ["gh", "api", "--method", method, endpoint]
-    if payload is not None:
-        argv.extend(["--input", "-"])
-    response = subprocess.check_output(argv, input=None if payload is None else json.dumps(payload).encode(),
-                                       timeout=45)
-    if method == "GET":
-        return json.loads(response)
 
 
 if __name__ == "__main__":

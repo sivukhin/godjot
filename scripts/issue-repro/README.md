@@ -6,7 +6,8 @@ report links to the comment when a case starts passing or failing.
 
 ## Write a comment
 
-Include one fenced block with the marker on its first line. For example:
+Include one fenced block with the marker on its first line. Use an explicit
+expectation when you know the HTML godjot should produce.
 
 ````markdown
 ```bash
@@ -15,11 +16,35 @@ expect-tool render '*Hello*' '<p><strong>Hello</strong></p>'
 ```
 ````
 
-`render` takes two arguments, the Djot input and expected HTML.
-Use shell-style quoting to keep spaces or line breaks inside each argument. The runner adds
-a trailing newline to both, sends the input to godjot through standard input,
-and compares the output byte for byte. The fence accepts a fixed helper
-grammar. It never invokes a shell.
+`expect-tool render` takes the Djot input and the expected HTML. To compare
+godjot with an independent renderer, use `diff-tool render` and supply only
+the input. This example covers [the raw-inline rendering bug in #29](https://github.com/sivukhin/godjot/issues/29).
+
+````markdown
+```bash
+# issue-repro v1
+diff-tool render 'a`hello`{=latex}b'
+```
+````
+
+The reference HTML is `<p>ab</p>` followed by a newline. The bug report shows
+godjot displaying `hello` inside a code span. A differential check derives
+the expected HTML from the pinned reference, so the comment can contain just
+the source document, including for examples with long HTML output.
+
+Both helpers accept shell-style quoting for spaces and line breaks, with a
+16 KiB UTF-8 limit per argument. The runner appends a newline to each input
+and to an explicit expectation. The comment supplies only literal data.
+
+The reference is `@djot/djot` 0.3.2, the [TypeScript implementation](https://github.com/jgm/djot.js),
+pinned in the [npm lockfile](reference/package-lock.json). Djot also has an
+[original Lua implementation](https://github.com/jgm/djot.lua). Using one
+fixed reference makes results comparable across runs. CI renders identical
+input in separate containers and compares stdout byte for byte. Differences
+in indentation, entity spelling, or a trailing newline can produce different
+bytes even when the HTML has the same meaning. Use an explicit expectation
+when godjot intentionally formats HTML differently. A reference error or
+timeout leaves the result inconclusive.
 
 Anyone can propose an example. The scanner accepts a published case from
 an allowlisted maintainer (numeric GitHub user ID) or bot (GitHub GraphQL

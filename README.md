@@ -63,6 +63,7 @@ This implementation passes all examples provided in the [spec](https://htmlprevi
 
 ### Reproducing reported bugs
 
-Include the Djot input and expected HTML when reporting a rendering bug.
-Maintainers can [turn that example into an executable issue comment](scripts/issue-repro/README.md)
-and replay it locally or in nightly CI.
+Include the Djot input when reporting a rendering bug. Maintainers can check
+the expected HTML explicitly or compare godjot with the pinned Djot reference
+renderer. The [issue reproducer guide](scripts/issue-repro/README.md) shows
+how to run either check locally and in nightly CI.

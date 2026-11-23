@@ -10,6 +10,7 @@ import uuid
 
 HERE = Path(__file__).resolve().parent
 MAX_CAPTURE = 131072
+REFERENCE_FILES = ("Dockerfile", "package.json", "package-lock.json", "render.cjs")
 RACE_TESTS = {"parser-state": "TestParserState", "parallel-render": "TestParallelRender"}
 
 
@@ -55,14 +56,56 @@ def copy_race_libraries(binary, destination):
         shutil.copy(source, target)
 
 
-def check(image, case, show_rows=False):
-    """Use the fixed entrypoint for this case and compare bounded results."""
+def build_reference(project):
+    """Only the pinned upstream package is downloaded, at image build time."""
+    reference = Path(project) / "scripts/issue-repro/reference"
+    with tempfile.TemporaryDirectory() as tmp:
+        context = Path(tmp)
+        for name in REFERENCE_FILES:
+            shutil.copy(reference / name, context / name)
+        image_id = context / "image-id"
+        subprocess.run(["docker", "build", "--iidfile", image_id, context], check=True)
+        return image_id.read_text().strip()
+
+
+def check(image, case, show_rows=False, reference=None):
+    """Run the fixed race suite or compare exact renderer output on the host."""
     if "suite" in case:
         test = RACE_TESTS.get(case["suite"])
         if test is None:
             return "invalid", "unknown concurrency suite"
+        try:
+            status, detail, _ = run_renderer(image, b"", test=test)
+        except (OSError, subprocess.SubprocessError):
+            return "inconclusive", "race container unavailable"
+        return status, detail
+    stdin = case["stdin"].encode()
+    if case.get("reference"):
+        if reference is None:
+            return "inconclusive", "reference renderer unavailable"
+        try:
+            status, detail, expected = run_renderer(reference, stdin)
+        except (OSError, subprocess.SubprocessError):
+            return "inconclusive", "reference container unavailable"
+        if status != "ok":
+            return "inconclusive", "reference: " + detail
     else:
-        test = None
+        expected = case["expected"].encode()
+    try:
+        status, detail, actual = run_renderer(image, stdin)
+    except (OSError, subprocess.SubprocessError):
+        return "inconclusive", "renderer container unavailable"
+    if status != "ok":
+        return status, detail
+    if actual == expected:
+        return "pass", "stdout matched"
+    if show_rows:
+        print(f"  expected: {json.dumps(expected.decode(errors='backslashreplace'))[:500]}")
+        print(f"  actual: {json.dumps(actual.decode(errors='backslashreplace'))[:500]}")
+    return "fail", "expected and actual stdout differ"
+
+
+def run_renderer(image, stdin, *, test=None):
     name = "godjot-repro-" + uuid.uuid4().hex
     memory = "512m" if test else "128m"
     command = [
@@ -74,34 +117,29 @@ def check(image, case, show_rows=False):
     ]
     if test:
         command.extend(["-test.run", f"^{test}$", "-test.v", "-test.timeout=25s"])
-    stdin = b"" if test else case["stdin"].encode()
     with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
         try:
             result = subprocess.run(command, input=stdin, stdout=out, stderr=err,
                                     timeout=35 if test else 20, preexec_fn=limit_capture)
             if out.tell() >= MAX_CAPTURE or err.tell() >= MAX_CAPTURE:
-                return "inconclusive", "output limit reached"
+                return "inconclusive", "output limit reached", b""
             code = result.returncode
             if code < 0 or code in (125, 126, 127, 137):
-                return "inconclusive", f"container exited with status {code}"
+                return "inconclusive", f"container exited with status {code}", b""
             out.seek(0)
             stdout = out.read()
             if test:
                 err.seek(0)
-                return race_result(test, code, stdout, err.read())
+                status, detail = race_result(test, code, stdout, err.read())
+                return status, detail, b""
         except subprocess.TimeoutExpired:
-            return "inconclusive", "container timed out"
+            return "inconclusive", "container timed out", b""
         finally:
             subprocess.run(["docker", "rm", "-f", name], stdout=subprocess.DEVNULL,
                            stderr=subprocess.DEVNULL, timeout=30)
     if code:
-        return "fail", f"renderer exited with status {code}"
-    if stdout == case["expected"].encode():
-        return "pass", "stdout matched"
-    if show_rows:
-        print(f"  expected: {json.dumps(case['expected'])[:500]}")
-        print(f"  actual: {json.dumps(stdout.decode(errors='backslashreplace'))[:500]}")
-    return "fail", "expected and actual stdout differ"
+        return "fail", f"renderer exited with status {code}", b""
+    return "ok", "", stdout
 
 
 def race_result(test, code, stdout, stderr):

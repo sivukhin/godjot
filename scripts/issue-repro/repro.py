@@ -14,7 +14,7 @@ import tomllib
 
 from cases import parse
 from github import scan
-from sandbox import build, check
+from sandbox import REFERENCE_FILES, build, build_reference, check
 
 HERE = Path(__file__).resolve().parent
 PROJECT = HERE.parents[1]
@@ -86,6 +86,7 @@ def replay(config, args, entries):
     runner = digest([config["build"], config["race_build"], *[path.read_text() for path in
                      [HERE / "cases.py", HERE / "sandbox.py", *sorted(HERE.glob("Dockerfile*")),
                       *sorted((HERE / "concurrency").glob("*.go"))]]])
+    reference_version = digest([(HERE / "reference" / name).read_text() for name in REFERENCE_FILES])
     rows = ["| Issue | Result | Evidence |", "| --- | --- | --- |"]
     changes = []
     unsuccessful = False
@@ -103,7 +104,8 @@ def replay(config, args, entries):
                 case = entry["case"]
                 status, detail = run_case(config, images, case, args.show_rows)
                 if status in ("pass", "fail"):
-                    key = (branch, n, digest([config["repository"], runner, case]))
+                    key = (branch, n, digest([config["repository"], runner, case,
+                                              reference_version if case.get("reference") else None]))
                     previous = history.execute("SELECT status,revision FROM results WHERE "
                                                "branch=? AND issue=? AND digest=?", key).fetchone()
                     history.execute("INSERT OR REPLACE INTO results VALUES (?,?,?,?,?)",
@@ -147,18 +149,21 @@ def record_result(stats, number, status, previous):
 
 
 def run_case(config, images, case, show):
-    race = "suite" in case
-    # Build at most once per kind. One unavailable toolchain should not hide
-    # results from the other kind or replace its last known result.
-    if race not in images:
-        try:
-            images[race] = build(config, PROJECT, race=race)
-        except (OSError, ValueError, subprocess.SubprocessError) as exc:
-            print(f"Could not build check image: {exc}", file=sys.stderr)
-            images[race] = None
-    if images[race] is None:
-        return "inconclusive", "could not build check image"
-    return check(images[race], case, show)
+    kind = "concurrency" if "suite" in case else "render"
+    required = (kind, "reference") if case.get("reference") else (kind,)
+    for name in required:
+        if name not in images:
+            try:
+                if name == "reference":
+                    images[name] = build_reference(PROJECT)
+                else:
+                    images[name] = build(config, PROJECT, race=name == "concurrency")
+            except (OSError, ValueError, subprocess.SubprocessError) as exc:
+                print(f"Could not build {name} image: {exc}", file=sys.stderr)
+                images[name] = None
+        if images[name] is None:
+            return "inconclusive", f"could not build {name} image"
+    return check(images[kind], case, show, reference=images.get("reference"))
 
 
 def digest(value):

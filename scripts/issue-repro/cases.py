@@ -49,9 +49,12 @@ def parse_command(source):
         if len(args) != 2 or args[1] not in CONCURRENCY_SUITES:
             raise Invalid("expected: check-concurrency parser-state or check-concurrency parallel-render")
         return {"suite": args[1]}
-    if len(args) != 4 or args[:2] != ["expect-tool", "render"]:
-        raise Invalid("expected: expect-tool render 'input' 'expected output'")
-    stdin, expected = args[2:]
-    if any(len(value.encode()) > 16384 or "\0" in value for value in (stdin, expected)):
+    if len(args) == 4 and args[:2] == ["expect-tool", "render"]:
+        case = {"stdin": args[2] + "\n", "expected": args[3] + "\n"}
+    elif len(args) == 3 and args[:2] == ["diff-tool", "render"]:
+        case = {"stdin": args[2] + "\n", "reference": True}
+    else:
+        raise Invalid("expected: expect-tool render 'input' 'expected output' or diff-tool render 'input'")
+    if any(len(value.encode()) > 16384 or "\0" in value for value in args[2:]):
         raise Invalid("each argument must contain at most 16 KiB of text without NUL")
-    return {"stdin": stdin + "\n", "expected": expected + "\n"}
+    return case

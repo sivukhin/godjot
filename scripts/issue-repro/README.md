@@ -75,3 +75,11 @@ caches run history between invocations. Cache eviction starts a fresh
 baseline. Same-repository pull requests that change the renderer or tooling also replay
 the approved cases and report current results. Only default-branch runs update
 the shared nightly history. Fork pull requests run the offline tests.
+
+After a completed run on the default branch, a separate publishing job creates
+or updates one **Issue reproducer dashboard** issue. It shows counts for unchanged
+cases, new observations, fixes, regressions, and inconclusive results. The
+report links to the changed cases and to the Actions run. An empty scan
+reports zero cases. A scan or build interrupted before the report is available
+leaves the previous dashboard in place. Pull requests publish only a job
+summary. The reporting job is the only job with write access to issues.

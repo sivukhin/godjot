@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import sqlite3
 import subprocess
 import tempfile
@@ -69,7 +70,7 @@ def main():
     if missing:
         parser.error(f"no cached reproducer for issues {sorted(missing)}")
     if not entries:
-        publish("No marked reproducer matched this scan.")
+        publish("No marked reproducer matched this scan.", new_stats(git("rev-parse", "HEAD")))
         return 0
     return replay(config, args, entries)
 
@@ -77,6 +78,7 @@ def main():
 def replay(config, args, entries):
     image = build(config, PROJECT) if any("case" in e for e in entries) else None
     revision = git("rev-parse", "HEAD")
+    stats = new_stats(revision)
     branch = git("rev-parse", "--abbrev-ref", "HEAD")
     if git("status", "--porcelain", "--untracked-files=no"):
         revision += "-dirty"
@@ -90,6 +92,7 @@ def replay(config, args, entries):
                         "(branch,issue,digest,status,revision, PRIMARY KEY(branch,issue,digest))")
         for entry in entries:
             n = entry["number"]
+            previous = None
             if "invalid" in entry:
                 status, detail = "invalid", entry["invalid"]
             else:
@@ -108,12 +111,37 @@ def replay(config, args, entries):
                         changes.append(f"#{n} {change}")
                         detail += f"; {change} since {previous[1]}"
                         unsuccessful |= status == "fail"
+            record_result(stats, n, status, previous)
             link = f"https://github.com/{config['repository']}/issues/{n}#issuecomment-{entry['comment']}"
             rows.append(f"| [#{n}]({link}) | {status} | {detail} |")
             unsuccessful |= (status in ("invalid", "inconclusive") or
                              status == "fail" and entry["state"] == "CLOSED")
-    publish("\n".join([f"godjot revision `{revision}`", "", *changes, "", *rows]))
+    publish("\n".join([f"godjot revision `{revision}`", "", *changes, "", *rows]), stats)
     return int(unsuccessful)
+
+
+def new_stats(revision):
+    if not re.fullmatch(r"[a-f0-9]{40}", revision):
+        raise ValueError("expected a full Git commit hash")
+    return {"revision": revision,
+            "counts": dict.fromkeys(("unchanged", "fixes", "regressions", "new", "inconclusive"), 0),
+            "fixes": [], "regressions": []}
+
+
+def record_result(stats, number, status, previous):
+    if type(number) is not int or number < 1:
+        raise ValueError("expected a positive GitHub issue number")
+    if status not in ("pass", "fail"):
+        category = "inconclusive"
+    elif previous is None:
+        category = "new"
+    elif previous[0] == status:
+        category = "unchanged"
+    else:
+        category = "fixes" if status == "pass" else "regressions"
+        if len(stats[category]) < 100:
+            stats[category].append(number)
+    stats["counts"][category] += 1
 
 
 def digest(value):
@@ -124,11 +152,18 @@ def git(*args):
     return subprocess.check_output(["git", *args], cwd=PROJECT, text=True).strip()
 
 
-def publish(text):
+def publish(text, stats):
+    counts = stats["counts"]
+    text = (f"{counts['unchanged']} unchanged, {counts['fixes']} fixes, "
+            f"{counts['regressions']} regressions, {counts['new']} new, "
+            f"{counts['inconclusive']} inconclusive.\n\n" + text)
     print(text)
     if summary := os.getenv("GITHUB_STEP_SUMMARY"):
         with open(summary, "a") as file:
             print(text, file=file)
+    if output := os.getenv("GITHUB_OUTPUT"):
+        with open(output, "a") as file:
+            print("stats=" + json.dumps(stats, separators=(",", ":")), file=file)
 
 
 if __name__ == "__main__":

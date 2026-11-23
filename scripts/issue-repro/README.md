@@ -112,9 +112,10 @@ CPU, memory, processes, output, and elapsed time. The renderer container receive
 
 ## Read the report
 
-A failure followed by a pass on the same case is a fix candidate. A pass
-followed by a failure is a regression candidate. A first pass establishes a
-baseline. An inconclusive check preserves the previous conclusive result.
+The summary compares each case with its last conclusive run. A failure
+followed by a pass counts as **fixed**, a pass followed by a failure counts as
+**regressed**, and matching results count as **unchanged**. First observations
+and checks without a verdict appear in a note only when they occur.
 The report includes the tested revision so a maintainer can review the
 behavior and decide whether to close the issue.
 
@@ -123,13 +124,11 @@ supports manual runs on the default branch. It writes a job summary and
 caches run history between invocations. Cache eviction starts a fresh
 baseline. Same-repository pull requests that change the renderer or tooling also replay
 the approved cases. A publishing job posts one comment on the PR, then updates
-it with each completed replay. It includes passing and failing totals and links
-to fix or regression candidates. Each PR keeps its own history. Only default-branch runs update
+it with each completed replay. It links to the cases that changed. Each PR keeps its own history. Only default-branch runs update
 the shared nightly history. Fork pull requests run the offline tests.
 
 After a completed run on the default branch, a separate publishing job creates
-or updates one **Issue reproducer dashboard** issue. It shows counts for unchanged
-cases, new observations, fixes, regressions, and inconclusive results. The
+or updates one **Issue reproducer dashboard** issue. It uses the same change summary. The
 report links to the changed cases and to the Actions run. An empty scan
 reports zero cases. A scan or build interrupted before the report is available
 leaves the previous dashboard in place. The two publishing jobs have separate

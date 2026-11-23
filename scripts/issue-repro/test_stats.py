@@ -53,7 +53,7 @@ class ReportStats(unittest.TestCase):
         self.run_cases(["pass", "fail", "fail", "pass", "pass", "inconclusive"])
         self.assertEqual(self.reports()[0]["counts"]["new"], 5)
         self.assertEqual(self.reports()[0]["outcomes"], {"pass": 3, "fail": 2})
-        self.assertIn("3 passed, 2 failed, 1 inconclusive.", self.summary.read_text())
+        self.assertIn("First result for 5 cases (3 passed, 2 failed).", self.summary.read_text())
         self.assertEqual(self.reports()[0]["fixes"], [])
         code = self.run_cases(["pass", "fail", "pass", "fail", "inconclusive", "pass"], invalid=True)
         self.assertEqual(code, 1)
@@ -63,7 +63,7 @@ class ReportStats(unittest.TestCase):
             "outcomes": {"pass": 3, "fail": 2},
             "fixes": [3], "regressions": [4],
         })
-        self.assertIn("2 unchanged", self.summary.read_text())
+        self.assertIn("**Unchanged** 2", self.summary.read_text())
 
     def test_partial_run_cannot_publish_or_advance_baseline(self):
         with self.assertRaisesRegex(RuntimeError, "interrupted"):

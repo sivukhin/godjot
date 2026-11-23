@@ -8,6 +8,8 @@ import re
 import subprocess
 import sys
 
+from summary import change_summary
+
 MARKER = "<!-- godjot:issue-repro-dashboard:v1 -->"
 PR_MARKER = "<!-- godjot:issue-repro-pr:v1 -->"
 TITLE = "Issue reproducer dashboard"
@@ -136,15 +138,8 @@ def find_marked(endpoint, marker):
 def render_summary(report, repo):
     counts = report["counts"]
     rev = report["revision"]
-    lines = [f"Reproducer results for [{rev[:12]}](https://github.com/{repo}/commit/{rev})."]
-    if "outcomes" in report:
-        outcomes = report["outcomes"]
-        lines.extend(["", f"**Passing** {outcomes['pass']} · **Failing** {outcomes['fail']}"])
-    lines.extend(["", "| Result | Cases |", "| --- | ---: |"])
-    for key, label in (("fixes", "Fix candidates"), ("regressions", "Regression candidates"),
-                       ("new", "New baselines"), ("unchanged", "Unchanged"), ("inconclusive", "Inconclusive")):
-        lines.append(f"| {label} | {counts[key]} |")
-    for key, label in (("fixes", "Review possible fixes"), ("regressions", "Review possible regressions")):
+    lines = [change_summary(report), "", f"Tested [{rev[:12]}](https://github.com/{repo}/commit/{rev})."]
+    for key, label in (("fixes", "Fixed cases"), ("regressions", "Regressed cases")):
         if report[key]:
             refs = ", ".join(f"[#{n}](https://github.com/{repo}/issues/{n})" for n in sorted(report[key]))
             more = counts[key] - len(report[key])

@@ -144,15 +144,15 @@ class LocalRunner(unittest.TestCase):
                 engine.return_value = (status, "test observation")
                 return self.cli("run")
 
-            self.assertNotIn("candidate", run("fail")[1])
+            self.assertNotIn("**Unchanged**", run("fail")[1])
             self.assertEqual(run("inconclusive")[0], 1)
-            self.assertIn("fix candidate", run("pass")[1])
+            self.assertIn("#7 fixed", run("pass")[1])
             self.git("switch", "--quiet", "-c", "topic")
-            self.assertNotIn("candidate", run("fail")[1])
+            self.assertNotIn("**Unchanged**", run("fail")[1])
             self.git("switch", "--quiet", "main")
             code, report = run("fail")
             self.assertEqual(code, 1)
-            self.assertIn("regression candidate", report)
+            self.assertIn("#7 regressed", report)
             self.assertIn("#issuecomment-42", report)
 
 

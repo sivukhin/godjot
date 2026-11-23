@@ -12,6 +12,7 @@ import sys
 import tempfile
 import tomllib
 
+from summary import change_summary
 from cases import parse
 from github import scan
 from sandbox import REFERENCE_FILES, build, build_reference, check
@@ -111,7 +112,7 @@ def replay(config, args, entries):
                     history.execute("INSERT OR REPLACE INTO results VALUES (?,?,?,?,?)",
                                     (*key, status, revision))
                     if previous and status != previous[0]:
-                        change = "fix candidate" if status == "pass" else "regression candidate"
+                        change = "fixed" if status == "pass" else "regressed"
                         changes.append(f"#{n} {change}")
                         detail += f"; {change} since {previous[1]}"
                         unsuccessful |= status == "fail"
@@ -178,11 +179,7 @@ def git(*args):
 
 
 def publish(text, stats):
-    counts = stats["counts"]
-    outcomes = stats["outcomes"]
-    text = (f"{outcomes['pass']} passed, {outcomes['fail']} failed, {counts['inconclusive']} inconclusive.\n\n"
-            f"{counts['unchanged']} unchanged, {counts['fixes']} fixes, "
-            f"{counts['regressions']} regressions, {counts['new']} new.\n\n" + text)
+    text = change_summary(stats) + "\n\n" + text
     print(text)
     if summary := os.getenv("GITHUB_STEP_SUMMARY"):
         with open(summary, "a") as file:

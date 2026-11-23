@@ -78,12 +78,12 @@ class Dashboard(unittest.TestCase):
     def test_dry_run_prints_without_gh(self):
         self.publish(dry_run=True)
         self.api.assert_not_called()
-        self.assertIn("Fix candidates | 1", self.output.getvalue())
+        self.assertIn("**Fixed** 1 · **Unchanged** 8 · **Regressed** 0", self.output.getvalue())
 
     def test_optional_outcomes_sum_to_conclusive_cases(self):
         self.report["outcomes"] = {"pass": 4, "fail": 7}
         self.publish(pr=88, dry_run=True)
-        self.assertIn("**Passing** 4 · **Failing** 7", self.output.getvalue())
+        self.assertIn("First result for 2 cases.", self.output.getvalue())
         for invalid in ({"pass": 11, "fail": True}, {"pass": 0, "fail": 14},
                         {"pass": -1, "fail": 12}, {"pass": 11}):
             with self.subTest(outcomes=invalid), self.assertRaises(ValueError):

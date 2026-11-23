@@ -118,6 +118,18 @@ func TestDjotDocExample(t *testing.T) {
 	}
 }
 
+func TestAttributeOrder(t *testing.T) {
+	for _, tc := range []struct{ input, want string }{
+		{`avant{lang=fr}{.blue}`, `<p><span lang="fr" class="blue">avant</span></p>`},
+		{`[link](url){lang=fr .blue #link}`, `<p><a href="url" lang="fr" class="blue" id="link">link</a></p>`},
+		{`![image](url){lang=fr .blue}`, `<p><img alt="image" src="url" lang="fr" class="blue"></p>`},
+	} {
+		t.Run(tc.input, func(t *testing.T) {
+			require.Equal(t, tc.want+"\n", printDjot(tc.input))
+		})
+	}
+}
+
 func TestRawInlineFormat(t *testing.T) {
 	result := printDjot("a`hello`{=latex}b `<b>raw</b>`{=html} `<b>code</b>`")
 	require.Equal(t, "<p>ab <b>raw</b> <code>&lt;b&gt;code&lt;/b&gt;</code></p>\n", result)

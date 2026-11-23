@@ -103,7 +103,7 @@ class LocalRunner(unittest.TestCase):
         self.git("remote", "add", "origin", "https://github.com/sivukhin/godjot.git")
         (self.project / ".issue-repro.toml").write_text(
             'repository = "sivukhin/godjot"\nbuild = ["go", "build"]\n'
-            'maintainer_ids = [100]\nbot_ids = []\n')
+            'race_build = ["go","test","-race","-c"]\nmaintainer_ids = [100]\nbot_ids = []\n')
         self.project_patch = patch.object(repro, "PROJECT", self.project)
         self.project_patch.start()
         self.addCleanup(self.project_patch.stop)

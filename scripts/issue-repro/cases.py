@@ -1,6 +1,9 @@
-"""Read one renderer check from a marked GitHub comment."""
+"""Read one predefined check from a marked GitHub comment."""
 import re
 import shlex
+
+
+CONCURRENCY_SUITES = ("parser-state", "parallel-render")
 
 
 class Invalid(ValueError):
@@ -8,7 +11,7 @@ class Invalid(ValueError):
 
 
 def parse(body):
-    """Return stdin and expected stdout, or None when no fence opts in."""
+    """Return a check, or None when no fence opts in."""
     case = None
     fence = None
     for line in body.replace("\r\n", "\n").split("\n"):
@@ -21,7 +24,7 @@ def parse(body):
             if marked(language, lines):
                 if case is not None:
                     raise Invalid("expected only one marked fence per comment")
-                case = render_case("\n".join(lines[1:]))
+                case = parse_command("\n".join(lines[1:]))
             fence = None
         else:
             lines.append(line)
@@ -34,15 +37,18 @@ def marked(language, lines):
     return language.strip() == "bash" and lines and lines[0] == "# issue-repro v1"
 
 
-def render_case(source):
+def parse_command(source):
     if len(source.encode()) > 49152:
         raise Invalid("reproducer exceeds 48 KiB")
     try:
-        # Quotes group literal arguments, including newlines. The strings go
-        # directly to the comparator and the renderer's stdin.
+        # Quotes group literal arguments, including newlines in rendering cases.
         args = shlex.split(source)
     except ValueError as exc:
         raise Invalid("unclosed quote or escape") from exc
+    if args[:1] == ["check-concurrency"]:
+        if len(args) != 2 or args[1] not in CONCURRENCY_SUITES:
+            raise Invalid("expected: check-concurrency parser-state or check-concurrency parallel-render")
+        return {"suite": args[1]}
     if len(args) != 4 or args[:2] != ["expect-tool", "render"]:
         raise Invalid("expected: expect-tool render 'input' 'expected output'")
     stdin, expected = args[2:]

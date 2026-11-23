@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import sqlite3
 import subprocess
+import sys
 import tempfile
 import tomllib
 
@@ -42,8 +43,8 @@ def main():
             parser.error("comment exceeds 64 KiB")
         case = parse(body.decode())
         if case is None:
-            parser.error("no marked render check")
-        status, detail = check(build(config, PROJECT), case, show_rows=True)
+            parser.error("no marked check")
+        status, detail = run_case(config, {}, case, show=True)
         print(status, detail)
         return int(status != "pass")
 
@@ -76,14 +77,15 @@ def main():
 
 
 def replay(config, args, entries):
-    image = build(config, PROJECT) if any("case" in e for e in entries) else None
+    images = {}
     revision = git("rev-parse", "HEAD")
     stats = new_stats(revision)
     branch = git("rev-parse", "--abbrev-ref", "HEAD")
     if git("status", "--porcelain", "--untracked-files=no"):
         revision += "-dirty"
-    runner = digest([config["build"], *[(HERE / name).read_text() for name in
-                                       ("Dockerfile", "cases.py", "sandbox.py")]])
+    runner = digest([config["build"], config["race_build"], *[path.read_text() for path in
+                     [HERE / "cases.py", HERE / "sandbox.py", *sorted(HERE.glob("Dockerfile*")),
+                      *sorted((HERE / "concurrency").glob("*.go"))]]])
     rows = ["| Issue | Result | Evidence |", "| --- | --- | --- |"]
     changes = []
     unsuccessful = False
@@ -99,7 +101,7 @@ def replay(config, args, entries):
                 if args.show_rows:
                     print(f"Checking #{n}")
                 case = entry["case"]
-                status, detail = check(image, case, args.show_rows)
+                status, detail = run_case(config, images, case, args.show_rows)
                 if status in ("pass", "fail"):
                     key = (branch, n, digest([config["repository"], runner, case]))
                     previous = history.execute("SELECT status,revision FROM results WHERE "
@@ -142,6 +144,21 @@ def record_result(stats, number, status, previous):
         if len(stats[category]) < 100:
             stats[category].append(number)
     stats["counts"][category] += 1
+
+
+def run_case(config, images, case, show):
+    race = "suite" in case
+    # Build at most once per kind. One unavailable toolchain should not hide
+    # results from the other kind or replace its last known result.
+    if race not in images:
+        try:
+            images[race] = build(config, PROJECT, race=race)
+        except (OSError, ValueError, subprocess.SubprocessError) as exc:
+            print(f"Could not build check image: {exc}", file=sys.stderr)
+            images[race] = None
+    if images[race] is None:
+        return "inconclusive", "could not build check image"
+    return check(images[race], case, show)
 
 
 def digest(value):

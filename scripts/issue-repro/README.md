@@ -27,6 +27,31 @@ node ID). The [repository configuration](../../.issue-repro.toml) defines
 these publishers and the build command. Publish a new comment to revise a
 case. An edited or malformed newest trusted case requires a replacement.
 
+## Check concurrent use of the library
+
+An issue can select a reviewed Go test by name:
+
+````markdown
+```bash
+# issue-repro v1
+check-concurrency parallel-render
+```
+````
+
+`parallel-render` shares a renderer across goroutines, each with its own parsed
+document and output writer. It checks expected HTML under the Go race detector.
+A passing run covers only the interleavings exercised by that run.
+
+`parser-state` checks the shared-state symptom reported in
+[issue #27](https://github.com/sivukhin/godjot/issues/27). It observes whether
+parsing one document changes the package's exported start-symbol set in a fresh
+process. This is a deterministic diagnostic for mutation. It does not establish
+whether a particular execution involved a data race.
+
+These checks use a cgo-enabled Linux Go toolchain with race detector support
+and a C compiler. The runner builds a dedicated test executable on demand;
+the repository chooses the test, flags and fixtures.
+
 ## Run locally
 
 From the repository root on Linux, use Python 3.11+, Go 1.23+, Docker, and

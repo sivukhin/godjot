@@ -20,7 +20,7 @@ class ReportStats(unittest.TestCase):
         self.output = self.cache / "output"
         self.summary = self.cache / "summary"
         self.revision = "a" * 40
-        self.config = {"repository": "org/repo", "build": [], "maintainer_ids": [], "bot_ids": []}
+        self.config = {"repository": "org/repo", "build": [], "race_build": [], "maintainer_ids": [], "bot_ids": []}
         self.stack = contextlib.ExitStack()
         self.addCleanup(self.stack.close)
         self.stack.enter_context(patch.dict(os.environ, GITHUB_OUTPUT=str(self.output),

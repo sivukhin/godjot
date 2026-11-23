@@ -126,10 +126,3 @@ baseline. Same-repository pull requests that change the renderer or tooling also
 the approved cases. A publishing job posts one comment on the PR, then updates
 it with each completed replay. It links to the cases that changed. Each PR keeps its own history. Only default-branch runs update
 the shared nightly history. Fork pull requests run the offline tests.
-
-After a completed run on the default branch, a separate publishing job creates
-or updates one **Issue reproducer dashboard** issue. It uses the same change summary. The
-report links to the changed cases and to the Actions run. An empty scan
-reports zero cases. A scan or build interrupted before the report is available
-leaves the previous dashboard in place. The two publishing jobs have separate
-write permissions for the dashboard issue and the PR comment.

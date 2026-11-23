@@ -4,67 +4,45 @@ import json
 import unittest
 from unittest.mock import patch
 
-import dashboard
+import pr_comment
 
 
-class Dashboard(unittest.TestCase):
+class PRComment(unittest.TestCase):
     def setUp(self):
         self.report = {
             "revision": "b" * 40,
             "counts": {"unchanged": 8, "fixes": 1, "regressions": 0, "new": 2, "inconclusive": 3},
             "fixes": [18], "regressions": [],
         }
-        self.api = self.enterContext(patch("dashboard.api"))
+        self.api = self.enterContext(patch("pr_comment.api"))
         self.output = self.enterContext(contextlib.redirect_stdout(io.StringIO()))
 
-    def publish(self, run="123", **opts):
-        dashboard.publish(json.dumps(self.report).encode(), "org/repo", run, **opts)
+    def publish(self, run="123", pr=88, **opts):
+        pr_comment.publish(json.dumps(self.report).encode(), "org/repo", run, pr, **opts)
 
-    def issue(self, body=dashboard.MARKER, bot=dashboard.BOT_ID):
-        return {"number": 50, "body": body, "user": {"id": bot, "type": "Bot"}}
-
-    def test_create_if_no_matching_dashboard(self):
-        self.api.return_value = [
-            self.issue(body="Description\n" + dashboard.MARKER), self.issue(bot=1),
-            dict(self.issue(), pull_request={}),
-        ]
-        self.publish()
-        create = self.api.call_args.args
-        self.assertEqual(create[:2], ("POST", "repos/org/repo/issues"))
-        self.assertIn("issues/18)", create[2]["body"])
-        self.assertIn("actions/runs/123)", create[2]["body"])
-
-    def test_paginate_update_and_skip_unchanged(self):
-        self.api.side_effect = [[self.issue(bot=1)] * 100, [self.issue()], None]
-        self.publish()
-        update = self.api.call_args.args
-        self.assertEqual(update[:2], ("PATCH", "repos/org/repo/issues/50"))
-        self.assertIn("page=2", self.api.call_args_list[1].args[1])
-        self.api.reset_mock()
-        self.api.side_effect = [[self.issue(body=update[2]["body"])]]
-        self.publish(run="456")
-        self.assertEqual(self.api.call_count, 1)
+    def comment(self, body=pr_comment.PR_MARKER, bot=pr_comment.BOT_ID):
+        return {"id": 50, "body": body, "user": {"id": bot, "type": "Bot"}}
 
     def test_create_pr_comment_ignores_other_authors_and_embedded_markers(self):
-        self.api.return_value = [self.issue(bot=1, body=dashboard.PR_MARKER),
-                                 self.issue(body="See below\n" + dashboard.PR_MARKER),
-                                 self.issue(body=dashboard.MARKER)]
+        self.api.return_value = [self.comment(bot=1, body=pr_comment.PR_MARKER),
+                                 self.comment(body="See below\n" + pr_comment.PR_MARKER),
+                                 self.comment(body="other bot comment")]
         self.publish(pr=88)
         self.assertTrue(self.api.call_args_list[0].args[1].startswith("repos/org/repo/issues/88/comments?"))
         method, endpoint, payload = self.api.call_args.args
         self.assertEqual((method, endpoint), ("POST", "repos/org/repo/issues/88/comments"))
-        self.assertTrue(payload["body"].startswith(dashboard.PR_MARKER + "\n\n### Issue replay results"))
+        self.assertTrue(payload["body"].startswith(pr_comment.PR_MARKER + "\n\n### Issue replay results"))
         self.assertIn("actions/runs/123)", payload["body"])
 
     def test_existing_pr_comment_paginates_and_updates_latest_run(self):
-        self.api.side_effect = [[self.issue(body="discussion")] * 100,
-                                [dict(self.issue(body=dashboard.PR_MARKER), id=12345)], None]
+        self.api.side_effect = [[self.comment(body="discussion")] * 100,
+                                [dict(self.comment(body=pr_comment.PR_MARKER), id=12345)], None]
         self.publish(pr=88)
         method, endpoint, payload = self.api.call_args.args
         self.assertEqual((method, endpoint), ("PATCH", "repos/org/repo/issues/comments/12345"))
         self.assertIn("page=2", self.api.call_args_list[1].args[1])
         self.api.reset_mock()
-        self.api.side_effect = [[dict(self.issue(body=payload["body"]), id=12345)], None]
+        self.api.side_effect = [[dict(self.comment(body=payload["body"]), id=12345)], None]
         self.publish(run="456", pr=88)
         self.assertEqual(self.api.call_args.args[:2], (method, endpoint))
         self.assertIn("actions/runs/456)", self.api.call_args.args[2]["body"])
@@ -91,8 +69,8 @@ class Dashboard(unittest.TestCase):
                 self.publish(pr=88)
         self.api.assert_not_called()
 
-    def test_duplicate_dashboards_fail_closed(self):
-        self.api.return_value = [self.issue(), dict(self.issue(), number=51)]
+    def test_duplicate_comments_fail_closed(self):
+        self.api.return_value = [self.comment(), dict(self.comment(), id=51)]
         with self.assertRaises(ValueError):
             self.publish()
         self.assertEqual(self.api.call_count, 1)
@@ -110,7 +88,7 @@ class Dashboard(unittest.TestCase):
         ):
             with self.subTest(change=list(altered)), self.assertRaises(ValueError):
                 data = json.dumps(dict(self.report, **altered)).encode()
-                dashboard.publish(data, "org/repo", "123")
+                pr_comment.publish(data, "org/repo", "123", 88)
         self.api.assert_not_called()
 
 

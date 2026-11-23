@@ -1,4 +1,4 @@
-"""Publish validated counts from the read-only runner to the tracking issue or a pull request comment."""
+"""Publish validated counts from the read-only runner to one pull request comment."""
 
 import argparse
 import json
@@ -10,9 +10,7 @@ import sys
 
 from summary import change_summary
 
-MARKER = "<!-- godjot:issue-repro-dashboard:v1 -->"
 PR_MARKER = "<!-- godjot:issue-repro-pr:v1 -->"
-TITLE = "Issue reproducer dashboard"
 BOT_ID = 41898282  # https://api.github.com/users/github-actions%5Bbot%5D
 MAX_BYTES = 16 * 1024
 MAX_ISSUES = 100
@@ -22,57 +20,39 @@ CATEGORIES = {"unchanged", "fixes", "regressions", "new", "inconclusive"}
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--file", type=Path, help="read the report from this file instead of REPORT_JSON")
-    parser.add_argument("--dry-run", action="store_true", help="print the dashboard without contacting GitHub")
-    parser.add_argument("--pr", type=int, help="publish a result comment on this pull request")
+    parser.add_argument("--dry-run", action="store_true", help="print the PR comment without contacting GitHub")
+    parser.add_argument("--pr", required=True, type=int, help="publish a result comment on this pull request")
     args = parser.parse_args()
     if args.file:
         with args.file.open("rb") as stream:
             data = stream.read(MAX_BYTES + 1)
     else:
         data = os.environ["REPORT_JSON"].encode()
-    publish(data, os.environ["GITHUB_REPOSITORY"], os.environ["GITHUB_RUN_ID"], args.dry_run, args.pr)
+    publish(data, os.environ["GITHUB_REPOSITORY"], os.environ["GITHUB_RUN_ID"], args.pr, args.dry_run)
 
 
-def publish(data, repo, run_id, dry_run=False, pr=None):
+def publish(data, repo, run_id, pr, dry_run=False):
     report = read_report(data)
     if not re.fullmatch(r"[A-Za-z0-9_-]+/[A-Za-z0-9_][A-Za-z0-9._-]*", repo):
         raise ValueError("invalid GitHub repository")
     if not re.fullmatch(r"[1-9][0-9]{0,19}", run_id):
         raise ValueError("invalid Actions run ID")
 
-    if pr is not None and (type(pr) is not int or not 1 <= pr <= 2**31 - 1):
+    if type(pr) is not int or not 1 <= pr <= 2**31 - 1:
         raise ValueError("invalid pull request number")
     issues = f"repos/{repo}/issues"
-    marker = PR_MARKER if pr else MARKER
-    heading = "### Issue replay results\n\n" if pr else ""
-    summary = f"{marker}\n\n{heading}{render_summary(report, repo)}"
+    summary = f"{PR_MARKER}\n\n### Issue replay results\n\n{render_summary(report, repo)}"
     run_link = f"[Actions run {run_id}](https://github.com/{repo}/actions/runs/{run_id})"
     body = f"{summary}\n\n{run_link}"
     if dry_run:
         print(body)
         return
-    if pr:
-        comments = f"{issues}/{pr}/comments"
-        existing = find_marked(comments + "?", PR_MARKER)
-        if existing is None:
-            api("POST", comments, {"body": body})
-        elif existing["body"] != body:
-            api("PATCH", f"{issues}/comments/{existing['id']}", {"body": body})
-        return
-    dashboard = find_marked(issues + "?creator=github-actions%5Bbot%5D&state=all&", MARKER)
-    if dashboard is None:
-        api("POST", issues, {"title": TITLE, "body": body})
-        print("Created the issue reproducer dashboard.")
-    else:
-        # Preserve the linked run when a repeated check produces the same
-        # report on the same revision. Avoid updating the issue each night.
-        old_summary, _, last_link = dashboard["body"].rpartition("\n\n")
-        expected_link = rf"\[Actions run ([1-9][0-9]*)\]\(https://github\.com/{re.escape(repo)}/actions/runs/\1\)"
-        if old_summary == summary and re.fullmatch(expected_link, last_link):
-            print(f"Dashboard #{dashboard['number']} already has this report.")
-            return
-        api("PATCH", f"{issues}/{dashboard['number']}", {"body": body})
-        print(f"Updated dashboard #{dashboard['number']}.")
+    comments = f"{issues}/{pr}/comments"
+    existing = find_comment(comments)
+    if existing is None:
+        api("POST", comments, {"body": body})
+    elif existing["body"] != body:
+        api("PATCH", f"{issues}/comments/{existing['id']}", {"body": body})
 
 
 def read_report(data):
@@ -116,16 +96,15 @@ def unique_keys(pairs):
     return result
 
 
-def find_marked(endpoint, marker):
+def find_comment(endpoint):
     page = 1
     found = None
     while True:
-        # The REST issues listing also includes pull requests.
-        batch = api("GET", f"{endpoint}per_page=100&page={page}")
+        batch = api("GET", f"{endpoint}?per_page=100&page={page}")
         for item in batch:
             author = item.get("user") or {}
-            if ("pull_request" in item or author.get("id") != BOT_ID or author.get("type") != "Bot" or
-                    (item.get("body") or "").partition("\n")[0] != marker):
+            if (author.get("id") != BOT_ID or author.get("type") != "Bot" or
+                    (item.get("body") or "").partition("\n")[0] != PR_MARKER):
                 continue
             if found is not None:
                 raise ValueError("multiple bot-authored entries with the same marker")

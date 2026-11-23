@@ -112,7 +112,7 @@ CPU, memory, processes, output, and elapsed time. The renderer container receive
 
 ## Read the report
 
-The summary compares each case with its last conclusive run. A failure
+Local and nightly replays compare each case with its last conclusive run. A failure
 followed by a pass counts as **fixed**, a pass followed by a failure counts as
 **regressed**, and matching results count as **unchanged**. First observations
 and checks without a verdict appear in a note only when they occur.
@@ -122,7 +122,13 @@ behavior and decide whether to close the issue.
 The [nightly workflow](../../.github/workflows/issue-repros.yml) also
 supports manual runs on the default branch. It writes a job summary and
 caches run history between invocations. Cache eviction starts a fresh
-baseline. Same-repository pull requests that change the renderer or tooling also replay
-the approved cases. A publishing job posts one comment on the PR, then updates
-it with each completed replay. It links to the cases that changed. Each PR keeps its own history. Only default-branch runs update
-the shared nightly history. Fork pull requests run the offline tests.
+baseline. On same-repository pull requests, CI scans once and runs those cases
+on the base revision and the proposed merge. An issue counts as fixed when the
+same check fails on the base and passes with the PR. The PR comment lists fixed
+and regressed issues and links to the run.
+
+For PRs targeting the default branch, CI also appends one `Fixes #123` line
+per reported fix to the PR description. GitHub closes linked issues on merge.
+Later runs update the generated lines and remove fixes that no longer qualify.
+Maintainers can still write their own closing lines. The publishing job runs
+the version of the publisher on the base branch. Fork PRs run the offline tests.

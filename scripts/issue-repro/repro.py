@@ -129,6 +129,7 @@ def new_stats(revision):
         raise ValueError("expected a full Git commit hash")
     return {"revision": revision,
             "counts": dict.fromkeys(("unchanged", "fixes", "regressions", "new", "inconclusive"), 0),
+            "outcomes": {"pass": 0, "fail": 0},
             "fixes": [], "regressions": []}
 
 
@@ -136,8 +137,10 @@ def record_result(stats, number, status, previous):
     if type(number) is not int or number < 1:
         raise ValueError("expected a positive GitHub issue number")
     if status not in ("pass", "fail"):
-        category = "inconclusive"
-    elif previous is None:
+        stats["counts"]["inconclusive"] += 1
+        return
+    stats["outcomes"][status] += 1
+    if previous is None:
         category = "new"
     elif previous[0] == status:
         category = "unchanged"
@@ -176,9 +179,10 @@ def git(*args):
 
 def publish(text, stats):
     counts = stats["counts"]
-    text = (f"{counts['unchanged']} unchanged, {counts['fixes']} fixes, "
-            f"{counts['regressions']} regressions, {counts['new']} new, "
-            f"{counts['inconclusive']} inconclusive.\n\n" + text)
+    outcomes = stats["outcomes"]
+    text = (f"{outcomes['pass']} passed, {outcomes['fail']} failed, {counts['inconclusive']} inconclusive.\n\n"
+            f"{counts['unchanged']} unchanged, {counts['fixes']} fixes, "
+            f"{counts['regressions']} regressions, {counts['new']} new.\n\n" + text)
     print(text)
     if summary := os.getenv("GITHUB_STEP_SUMMARY"):
         with open(summary, "a") as file:

@@ -1,4 +1,4 @@
-"""Publish validated counts from the read-only runner to one tracking issue."""
+"""Publish validated counts from the read-only runner to the tracking issue or a pull request comment."""
 
 import argparse
 import json
@@ -9,6 +9,7 @@ import subprocess
 import sys
 
 MARKER = "<!-- godjot:issue-repro-dashboard:v1 -->"
+PR_MARKER = "<!-- godjot:issue-repro-pr:v1 -->"
 TITLE = "Issue reproducer dashboard"
 BOT_ID = 41898282  # https://api.github.com/users/github-actions%5Bbot%5D
 MAX_BYTES = 16 * 1024
@@ -20,30 +21,43 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--file", type=Path, help="read the report from this file instead of REPORT_JSON")
     parser.add_argument("--dry-run", action="store_true", help="print the dashboard without contacting GitHub")
+    parser.add_argument("--pr", type=int, help="publish a result comment on this pull request")
     args = parser.parse_args()
     if args.file:
         with args.file.open("rb") as stream:
             data = stream.read(MAX_BYTES + 1)
     else:
         data = os.environ["REPORT_JSON"].encode()
-    publish(data, os.environ["GITHUB_REPOSITORY"], os.environ["GITHUB_RUN_ID"], args.dry_run)
+    publish(data, os.environ["GITHUB_REPOSITORY"], os.environ["GITHUB_RUN_ID"], args.dry_run, args.pr)
 
 
-def publish(data, repo, run_id, dry_run=False):
+def publish(data, repo, run_id, dry_run=False, pr=None):
     report = read_report(data)
     if not re.fullmatch(r"[A-Za-z0-9_-]+/[A-Za-z0-9_][A-Za-z0-9._-]*", repo):
         raise ValueError("invalid GitHub repository")
     if not re.fullmatch(r"[1-9][0-9]{0,19}", run_id):
         raise ValueError("invalid Actions run ID")
 
+    if pr is not None and (type(pr) is not int or not 1 <= pr <= 2**31 - 1):
+        raise ValueError("invalid pull request number")
     issues = f"repos/{repo}/issues"
-    summary = render_summary(report, repo)
+    marker = PR_MARKER if pr else MARKER
+    heading = "### Issue replay results\n\n" if pr else ""
+    summary = f"{marker}\n\n{heading}{render_summary(report, repo)}"
     run_link = f"[Actions run {run_id}](https://github.com/{repo}/actions/runs/{run_id})"
     body = f"{summary}\n\n{run_link}"
     if dry_run:
         print(body)
         return
-    dashboard = find_dashboard(issues)
+    if pr:
+        comments = f"{issues}/{pr}/comments"
+        existing = find_marked(comments + "?", PR_MARKER)
+        if existing is None:
+            api("POST", comments, {"body": body})
+        elif existing["body"] != body:
+            api("PATCH", f"{issues}/comments/{existing['id']}", {"body": body})
+        return
+    dashboard = find_marked(issues + "?creator=github-actions%5Bbot%5D&state=all&", MARKER)
     if dashboard is None:
         api("POST", issues, {"title": TITLE, "body": body})
         print("Created the issue reproducer dashboard.")
@@ -63,7 +77,8 @@ def read_report(data):
     if len(data) > MAX_BYTES:
         raise ValueError("report too large")
     report = json.loads(data, object_pairs_hook=unique_keys)
-    if type(report) is not dict or set(report) != {"revision", "counts", "fixes", "regressions"}:
+    fields = {"revision", "counts", "fixes", "regressions"}
+    if type(report) is not dict or set(report) not in (fields, fields | {"outcomes"}):
         raise ValueError("invalid report fields")
     revision = report["revision"]
     if not isinstance(revision, str) or not re.fullmatch("[a-f0-9]{40}", revision):
@@ -72,6 +87,12 @@ def read_report(data):
     if (type(counts) is not dict or set(counts) != CATEGORIES or
             any(type(n) is not int or not 0 <= n <= 2**31 - 1 for n in counts.values())):
         raise ValueError("invalid counts")
+    if "outcomes" in report:
+        outcomes = report["outcomes"]
+        if (type(outcomes) is not dict or set(outcomes) != {"pass", "fail"} or
+                any(type(n) is not int or not 0 <= n <= 2**31 - 1 for n in outcomes.values()) or
+                sum(outcomes.values()) != sum(counts.values()) - counts["inconclusive"]):
+            raise ValueError("invalid outcome totals")
     seen = set()
     for name in ("fixes", "regressions"):
         issues = report[name]
@@ -93,20 +114,20 @@ def unique_keys(pairs):
     return result
 
 
-def find_dashboard(issues):
+def find_marked(endpoint, marker):
     page = 1
     found = None
     while True:
         # The REST issues listing also includes pull requests.
-        batch = api("GET", f"{issues}?creator=github-actions%5Bbot%5D&state=all&per_page=100&page={page}")
-        for issue in batch:
-            if ("pull_request" in issue or issue["user"]["id"] != BOT_ID or
-                    issue["user"]["type"] != "Bot" or
-                    (issue.get("body") or "").partition("\n")[0] != MARKER):
+        batch = api("GET", f"{endpoint}per_page=100&page={page}")
+        for item in batch:
+            author = item.get("user") or {}
+            if ("pull_request" in item or author.get("id") != BOT_ID or author.get("type") != "Bot" or
+                    (item.get("body") or "").partition("\n")[0] != marker):
                 continue
             if found is not None:
-                raise ValueError("multiple bot-authored dashboards found")
-            found = issue
+                raise ValueError("multiple bot-authored entries with the same marker")
+            found = item
         if len(batch) < 100:
             return found
         page += 1
@@ -115,8 +136,11 @@ def find_dashboard(issues):
 def render_summary(report, repo):
     counts = report["counts"]
     rev = report["revision"]
-    lines = [MARKER, "", f"Reproducer results for [{rev[:12]}](https://github.com/{repo}/commit/{rev}).",
-             "", "| Result | Cases |", "| --- | ---: |"]
+    lines = [f"Reproducer results for [{rev[:12]}](https://github.com/{repo}/commit/{rev})."]
+    if "outcomes" in report:
+        outcomes = report["outcomes"]
+        lines.extend(["", f"**Passing** {outcomes['pass']} · **Failing** {outcomes['fail']}"])
+    lines.extend(["", "| Result | Cases |", "| --- | ---: |"])
     for key, label in (("fixes", "Fix candidates"), ("regressions", "Regression candidates"),
                        ("new", "New baselines"), ("unchanged", "Unchanged"), ("inconclusive", "Inconclusive")):
         lines.append(f"| {label} | {counts[key]} |")

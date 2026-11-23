@@ -108,8 +108,7 @@ dependencies. Build commands run on the host, so use a trusted checkout.
 
 The renderer runs as a non-root user in a fresh container with a read-only
 root, bounded temporary storage, no host mounts or network, and limits on
-CPU, memory, processes, output, and elapsed time. Only the scanner receives
-the GitHub credential in CI.
+CPU, memory, processes, output, and elapsed time. The renderer container receives no GitHub credential.
 
 ## Read the report
 
@@ -123,7 +122,9 @@ The [nightly workflow](../../.github/workflows/issue-repros.yml) also
 supports manual runs on the default branch. It writes a job summary and
 caches run history between invocations. Cache eviction starts a fresh
 baseline. Same-repository pull requests that change the renderer or tooling also replay
-the approved cases and report current results. Only default-branch runs update
+the approved cases. A publishing job posts one comment on the PR, then updates
+it with each completed replay. It includes passing and failing totals and links
+to fix or regression candidates. Each PR keeps its own history. Only default-branch runs update
 the shared nightly history. Fork pull requests run the offline tests.
 
 After a completed run on the default branch, a separate publishing job creates
@@ -131,5 +132,5 @@ or updates one **Issue reproducer dashboard** issue. It shows counts for unchang
 cases, new observations, fixes, regressions, and inconclusive results. The
 report links to the changed cases and to the Actions run. An empty scan
 reports zero cases. A scan or build interrupted before the report is available
-leaves the previous dashboard in place. Pull requests publish only a job
-summary. The reporting job is the only job with write access to issues.
+leaves the previous dashboard in place. The two publishing jobs have separate
+write permissions for the dashboard issue and the PR comment.

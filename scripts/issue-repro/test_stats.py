@@ -52,12 +52,15 @@ class ReportStats(unittest.TestCase):
     def test_transitions_with_invalid_and_operational_errors(self):
         self.run_cases(["pass", "fail", "fail", "pass", "pass", "inconclusive"])
         self.assertEqual(self.reports()[0]["counts"]["new"], 5)
+        self.assertEqual(self.reports()[0]["outcomes"], {"pass": 3, "fail": 2})
+        self.assertIn("3 passed, 2 failed, 1 inconclusive.", self.summary.read_text())
         self.assertEqual(self.reports()[0]["fixes"], [])
         code = self.run_cases(["pass", "fail", "pass", "fail", "inconclusive", "pass"], invalid=True)
         self.assertEqual(code, 1)
         self.assertEqual(self.reports()[1], {
             "revision": self.revision,
             "counts": {"new": 1, "unchanged": 2, "fixes": 1, "regressions": 1, "inconclusive": 2},
+            "outcomes": {"pass": 3, "fail": 2},
             "fixes": [3], "regressions": [4],
         })
         self.assertIn("2 unchanged", self.summary.read_text())
@@ -87,3 +90,4 @@ class ReportStats(unittest.TestCase):
         ):
             self.assertEqual(repro.main(), 0)
         self.assertEqual(sum(self.reports()[0]["counts"].values()), 0)
+        self.assertEqual(self.reports()[0]["outcomes"], {"pass": 0, "fail": 0})

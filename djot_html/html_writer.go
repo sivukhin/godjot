@@ -116,8 +116,10 @@ var DefaultConversionRegistry = map[DjotNode]Conversion[*HtmlWriter]{
 				n(nil)
 				s.Writer.WriteString("\\]")
 			})
-		} else if rawFormat := s.Node.Attributes.Get(RawInlineFormatKey); rawFormat == s.Format {
-			n(nil)
+		} else if rawFormat, ok := s.Node.Attributes.TryGet(RawInlineFormatKey); ok {
+			if rawFormat == s.Format {
+				n(nil)
+			}
 		} else {
 			s.Writer.InTag("code", s.Node.Attributes.Entries()...)(func() { n(nil) })
 		}

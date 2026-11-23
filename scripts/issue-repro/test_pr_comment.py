@@ -69,6 +69,25 @@ class PRComment(unittest.TestCase):
                 self.publish(pr=88)
         self.api.assert_not_called()
 
+    def test_changed_issues_are_numbered_under_each_heading(self):
+        self.report.update(fixes=[29, 18], regressions=[33, 31])
+        self.report["counts"].update(fixes=2, regressions=2)
+        self.publish(dry_run=True)
+        for heading, first, second in (("Fixed cases", 18, 29), ("Regressed cases", 31, 33)):
+            self.assertIn(f"**{heading}**\n\n"
+                          f"1. [#{first}](https://github.com/org/repo/issues/{first})\n"
+                          f"2. [#{second}](https://github.com/org/repo/issues/{second})",
+                          self.output.getvalue())
+
+    def test_publish_syncs_only_current_fixes_to_the_description(self):
+        self.api.return_value = []
+        env = {"REPORT_JSON": json.dumps(self.report), "GITHUB_REPOSITORY": "org/repo",
+               "GITHUB_RUN_ID": "123", "ISSUE_REPRO_HEAD_SHA": "c" * 40, "ISSUE_REPRO_BASE_SHA": "a" * 40}
+        with (patch.dict("os.environ", env, clear=True), patch("sys.argv", ["pr_comment", "--pr", "88"]),
+              patch("pr_comment.sync_description") as sync):
+            pr_comment.main()
+            sync.assert_called_once_with("org/repo", 88, [18], head_sha="c" * 40, base_sha="a" * 40)
+
     def test_duplicate_comments_fail_closed(self):
         self.api.return_value = [self.comment(), dict(self.comment(), id=51)]
         with self.assertRaises(ValueError):

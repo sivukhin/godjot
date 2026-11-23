@@ -118,6 +118,11 @@ func TestDjotDocExample(t *testing.T) {
 	}
 }
 
+func TestRawInlineFormat(t *testing.T) {
+	result := printDjot("a`hello`{=latex}b `<b>raw</b>`{=html} `<b>code</b>`")
+	require.Equal(t, "<p>ab <b>raw</b> <code>&lt;b&gt;code&lt;/b&gt;</code></p>\n", result)
+}
+
 func TestManualExamples(t *testing.T) {
 	t.Run("link in text", func(t *testing.T) {
 		result := printDjot("link http://localhost:3000/debug/pprof/profile?seconds=10 -o profile.pprof")

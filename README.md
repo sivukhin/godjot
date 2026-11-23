@@ -60,3 +60,10 @@ content := djot_html.New(
 ```
 
 This implementation passes all examples provided in the [spec](https://htmlpreview.github.io/?https://github.com/jgm/djot/blob/master/doc/syntax.html) but can diverge from original javascript implementation in some cases.
+
+### Reproducing reported bugs
+
+Include the Djot input when reporting a rendering bug. Maintainers can check
+the expected HTML explicitly or compare godjot with the pinned Djot reference
+renderer. The [issue reproducer guide](scripts/issue-repro/README.md) shows
+how to run either check locally and in nightly CI.

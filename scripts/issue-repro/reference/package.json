@@ -1,0 +1,8 @@
+{
+  "name": "godjot-issue-reference",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@djot/djot": "0.3.2"
+  }
+}

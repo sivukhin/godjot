@@ -1,0 +1,5 @@
+FROM scratch
+COPY godjot /godjot
+USER 65534:65534
+ENV GOMAXPROCS=1
+ENTRYPOINT ["/godjot"]

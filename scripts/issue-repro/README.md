@@ -130,5 +130,7 @@ and regressed issues and links to the run.
 For PRs targeting the default branch, CI also appends one `Fixes #123` line
 per reported fix to the PR description. GitHub closes linked issues on merge.
 Later runs update the generated lines and remove fixes that no longer qualify.
-Maintainers can still write their own closing lines. The publishing job runs
-the version of the publisher on the base branch. Fork PRs run the offline tests.
+Maintainers can still write their own closing lines. The publishing job checks
+out an exact commit. When changing the publisher, update its checkout SHA in
+`issue-repros.yml` to the commit containing the reviewed code. Fork PRs run the
+offline tests.

@@ -120,7 +120,8 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: ${{ github.base_ref == github.event.repository.default_branch && github.event.pull_request.base.sha || github.event.repository.default_branch }}
+          # Pin the publisher that receives the write token, independently of the tested PR.
+          ref: 7694ac89654ab5bf6154643cb98c317b0edae775
           persist-credentials: false
       - name: Post or update replay statistics on this PR
         env:

@@ -15,9 +15,15 @@ var (
 
 const RecordStartSymbol = true
 
-var StartSymbols = make(map[byte]struct{})
+type Tokenizer struct {
+	StartSymbols map[byte]struct{}
+}
 
-func MatchInlineToken(
+func New() Tokenizer {
+	return Tokenizer{make(map[byte]struct{})}
+}
+
+func (t Tokenizer) MatchInlineToken(
 	r tokenizer.TextReader,
 	s tokenizer.ReaderState,
 	tokenType DjotToken,
@@ -25,7 +31,7 @@ func MatchInlineToken(
 	state, ok := matchInlineToken(r, s, tokenType)
 	//goland:noinspection GoBoolExpressions
 	if RecordStartSymbol && ok && !r.IsEmpty(s) {
-		StartSymbols[r[s]] = struct{}{}
+		t.StartSymbols[r[s]] = struct{}{}
 	}
 	return state, ok
 }

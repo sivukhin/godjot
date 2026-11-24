@@ -11,6 +11,8 @@ func BuildInlineDjotTokens(
 	document []byte,
 	parts ...tokenizer.Range,
 ) []tokenizer.Token[DjotToken] {
+	tok := New()
+
 	if len(parts) == 0 {
 		parts = []tokenizer.Range{{Start: 0, End: len(document)}}
 	}
@@ -35,7 +37,7 @@ func BuildInlineDjotTokens(
 
 			// Check if verbatim is open - then we can't process any inline-level elements
 			if openInlineType == VerbatimInline {
-				next, ok := MatchInlineToken(reader, state, VerbatimInline^tokenizer.Open)
+				next, ok := tok.MatchInlineToken(reader, state, VerbatimInline^tokenizer.Open)
 				if !ok {
 					state++
 					continue
@@ -74,7 +76,7 @@ func BuildInlineDjotTokens(
 
 			// EscapedSymbolInline / SmartSymbolInline is non-paired tokens - so we should treat it separately
 			for _, tokenType := range []DjotToken{EscapedSymbolInline, SmartSymbolInline} {
-				if next, ok := MatchInlineToken(reader, state, tokenType); ok {
+				if next, ok := tok.MatchInlineToken(reader, state, tokenType); ok {
 					tokenStack.LastLevel().Push(tokenizer.Token[DjotToken]{Type: tokenType, Start: state, End: next})
 					state = next
 					continue inlineParsingLoop
@@ -101,7 +103,7 @@ func BuildInlineDjotTokens(
 				PipeTableSeparator,
 			} {
 				// Closing tokens take precedence because of greedy nature of parsing
-				next, ok := MatchInlineToken(reader, state, tokenType^tokenizer.Open)
+				next, ok := tok.MatchInlineToken(reader, state, tokenType^tokenizer.Open)
 				// EmphasisInline / StrongInline elements must contain something in between of open and close tokens
 				forbidClose := (tokenType == EmphasisInline && lastInline.Type == EmphasisInline && lastInline.End == state) ||
 					(tokenType == StrongInline && lastInline.Type == StrongInline && lastInline.End == state)
@@ -119,7 +121,7 @@ func BuildInlineDjotTokens(
 					lastInline.Type != SpanInline^tokenizer.Open && lastInline.Type != ImageSpanInline^tokenizer.Open {
 					continue
 				}
-				next, ok = MatchInlineToken(reader, state, tokenType)
+				next, ok = tok.MatchInlineToken(reader, state, tokenType)
 				if ok {
 					var attributes tokenizer.Attributes
 					token := reader[state:next]

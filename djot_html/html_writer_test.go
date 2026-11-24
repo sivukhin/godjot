@@ -84,7 +84,8 @@ func TestStartSymbol(t *testing.T) {
 		_ = BuildDjotAst(djotExample)
 	}
 	symbols := make([]byte, 0)
-	for s := range djot_tokenizer.StartSymbols {
+	tok := djot_tokenizer.New()
+	for s := range tok.StartSymbols {
 		if !tokenizer.SpaceNewLineByteMask.Has(s) {
 			symbols = append(symbols, s)
 		}

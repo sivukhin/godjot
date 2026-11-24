@@ -1,6 +1,6 @@
 package djot_tokenizer
 
-import "github.com/sivukhin/godjot/v2/tokenizer"
+import "git.sr.ht/~ser/godjot/v2/tokenizer"
 
 const (
 	DjotAttributeClassKey = "class"

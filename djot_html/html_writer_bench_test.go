@@ -4,7 +4,7 @@ import (
 	_ "embed"
 	"testing"
 
-	. "github.com/sivukhin/godjot/v2/djot_parser"
+	. "git.sr.ht/~ser/godjot/v2/djot_parser"
 )
 
 //go:embed bench/sample01.djot

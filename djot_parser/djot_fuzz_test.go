@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/sivukhin/godjot/v2/djot_tokenizer"
+	"git.sr.ht/~ser/godjot/v2/djot_tokenizer"
 )
 
 const examplesDir = "examples"

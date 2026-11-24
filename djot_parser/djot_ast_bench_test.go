@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/sivukhin/godjot/v2/djot_tokenizer"
+	"git.sr.ht/~ser/godjot/v2/djot_tokenizer"
 )
 
 //go:embed bench/sample01.djot

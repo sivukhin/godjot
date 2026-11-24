@@ -1,19 +1,21 @@
 ## godjot
 
-[![Go Report Card][go-report-image]][go-report-url]
-![Go Version][go-build-badge]
-
-[go-report-image]: https://goreportcard.com/badge/github.com/sivukhin/godjot
-[go-report-url]: https://goreportcard.com/report/github.com/sivukhin/godjot
-[go-build-badge]: https://img.shields.io/github/v/tag/sivukhin/godjot?label=version&sort=semver
+[![Go Report Card](https://goreportcard.com/badge/git.sr.ht/~ser/godjot)](https://goreportcard.com/report/git.sr.ht/~ser/godjot)
+[![Build status](https://builds.sr.ht/~ser/godjot/.build.yml.svg)](https://builds.sr.ht/~ser/godjot/.build.yml?)
 
 [Djot](https://github.com/jgm/djot) markup language parser implemented in Go language
+
+## This is a fork
+
+The [original project](https://github.com/sivukhin/godjot) is on github. I
+submit PRs upstream; you may want to check that project first. I use this
+library in a few different projects, and depend on some of the changes.
 
 ### Installation
 
 You can install **godjot** as a standalone binary:
 ```shell
-$> go install github.com/sivukhin/godjot/v2@latest
+$> go install git.sr.ht/~ser/godjot/v2@latest
 $> echo '*Hello*, _world_' | godjot
 <p><strong>Hello</strong>, <em>world</em></p>
 ```

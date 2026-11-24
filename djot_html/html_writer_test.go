@@ -14,9 +14,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	. "github.com/sivukhin/godjot/v2/djot_parser"
-	"github.com/sivukhin/godjot/v2/djot_tokenizer"
-	"github.com/sivukhin/godjot/v2/tokenizer"
+	. "git.sr.ht/~ser/godjot/v2/djot_parser"
+	"git.sr.ht/~ser/godjot/v2/djot_tokenizer"
+	"git.sr.ht/~ser/godjot/v2/tokenizer"
 )
 
 func printDjot(text string) string {
@@ -84,7 +84,8 @@ func TestStartSymbol(t *testing.T) {
 		_ = BuildDjotAst(djotExample)
 	}
 	symbols := make([]byte, 0)
-	for s := range djot_tokenizer.StartSymbols {
+	tok := djot_tokenizer.New()
+	for s := range tok.StartSymbols {
 		if !tokenizer.SpaceNewLineByteMask.Has(s) {
 			symbols = append(symbols, s)
 		}

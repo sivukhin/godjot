@@ -6,7 +6,7 @@ type (
 	// (for example, render data somewhere or just analyze AST and accumulate some knowledge in the internal fields of T)
 	//
 	// Also, third-party libraries can implement custom factories for ConversionContext for targets different from HTML
-	// (see https://github.com/sivukhin/godjot/issues/14 for more details)
+	// (see https://git.sr.ht/~ser/godjot/issues/14 for more details)
 	ConversionContext[T any] struct {
 		Format   string
 		Registry ConversionRegistry[T]
@@ -62,7 +62,7 @@ type backCompatGuard struct{ _ int }
 
 // NewConversionContext kept to simplify migration from old API to the new approach
 // Deprecated: use djot_html.New(converters...) instead
-// See https://github.com/sivukhin/godjot/releases/tag/v2.0.0
+// See https://git.sr.ht/~ser/godjot/releases/tag/v2.0.0
 func NewConversionContext(_ backCompatGuard) ConversionContext[backCompatGuard] {
 	panic("deprecated API usage")
 }
